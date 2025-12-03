@@ -1,0 +1,68 @@
+.app-usage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.usage-item {
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8f9fa;
+  transition: background 0.2s;
+}
+
+.usage-item:hover {
+  background: #e9ecef;
+}
+
+.usage-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.usage-rank {
+  font-weight: 600;
+  color: #667eea;
+  min-width: 30px;
+}
+
+.usage-app-name {
+  flex: 1;
+  font-weight: 500;
+  color: #333;
+}
+
+.usage-duration {
+  font-weight: 600;
+  color: #667eea;
+  font-size: 14px;
+}
+
+.usage-bar-container {
+  height: 8px;
+  background: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.usage-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.usage-meta {
+  font-size: 12px;
+  color: #666;
+}
+
+.empty-usage {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+}
+

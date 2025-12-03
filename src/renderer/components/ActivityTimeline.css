@@ -1,0 +1,87 @@
+.activity-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 16px;
+  padding: 12px;
+  border-left: 3px solid #667eea;
+  background: #f8f9fa;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.timeline-item:hover {
+  background: #e9ecef;
+  transform: translateX(4px);
+}
+
+.timeline-time {
+  font-size: 12px;
+  color: #666;
+  min-width: 120px;
+  font-family: 'Courier New', monospace;
+}
+
+.timeline-content {
+  flex: 1;
+}
+
+.timeline-app {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.timeline-window {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-duration {
+  font-size: 12px;
+  color: #667eea;
+  font-weight: 500;
+}
+
+.timeline-more {
+  text-align: center;
+  padding: 12px;
+  color: #666;
+  font-size: 14px;
+}
+
+.empty-timeline {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+}
+
+/* 滚动条样式 */
+.activity-timeline::-webkit-scrollbar {
+  width: 6px;
+}
+
+.activity-timeline::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.activity-timeline::-webkit-scrollbar-thumb {
+  background: #667eea;
+  border-radius: 3px;
+}
+
+.activity-timeline::-webkit-scrollbar-thumb:hover {
+  background: #764ba2;
+}
+

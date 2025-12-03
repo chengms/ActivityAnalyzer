@@ -1,0 +1,249 @@
+# Cursor 项目规则 - 活动分析器 (Activity Analyzer)
+
+## 🚫 重要：不要通过 Cursor 工具运行长时间进程
+
+### 禁止的操作
+- ❌ **不要**使用 `run_terminal_cmd` 工具运行 `npm start` 或 `npm run dev`
+- ❌ **不要**在后台运行 Electron 应用（`is_background: true`）
+- ❌ **不要**等待 Electron 应用"完成"（它会持续运行）
+
+### 原因
+Electron 应用是持续运行的进程，不会自动退出。如果通过 Cursor 工具运行，会导致界面卡住，因为工具会等待命令完成，但 Electron 应用永远不会"完成"。
+
+---
+
+## ✅ 正确的操作方式
+
+### 1. 运行 Electron 应用
+**应该：** 告诉用户在独立终端中运行
+```bash
+# 在用户的独立终端中运行
+npm start
+```
+
+**或者：** 使用启动脚本
+```bash
+# 告诉用户双击 start-app.bat
+```
+
+### 2. 构建命令
+**可以：** 在 Cursor 工具中运行（通常很快完成）
+```bash
+npm run build
+npm run build:main
+npm run build:renderer
+```
+
+### 3. 测试和检查
+**可以：** 运行快速检查命令
+```bash
+# 检查文件是否存在
+Test-Path dist\main\main.js
+
+# 检查进程
+Get-Process | Where-Object {$_.ProcessName -like "*electron*"}
+
+# 编译检查
+npx tsc -p tsconfig.main.json
+```
+
+---
+
+## 📋 代码编辑规则
+
+### TypeScript 配置
+- 主进程代码在 `src/main/`、`src/tracker/`、`src/reporter/`、`src/settings/`
+- 渲染进程代码在 `src/renderer/`
+- 使用 `tsconfig.main.json` 编译主进程
+- 使用 Vite 构建渲染进程
+
+### 导入规则
+- 主进程使用 CommonJS：`require()` 和 `module.exports`
+- 渲染进程使用 ES6：`import` 和 `export`
+- 注意：`better-sqlite3` 导入为 `DatabaseLib` 避免与我们的 `Database` 类冲突
+
+### 路径规则
+- Vite 配置必须设置 `base: './'` 使用相对路径（适配 Electron）
+- 主进程使用 `path.join(__dirname, ...)` 构建路径
+- 渲染进程使用相对路径 `./assets/...`
+
+---
+
+## 🔧 调试和测试
+
+### 添加调试日志
+在关键位置添加 `console.log()` 帮助调试：
+```typescript
+console.log('App ready, initializing...');
+console.log('Settings initialized');
+console.log('Database initialized');
+```
+
+### 错误处理
+所有异步操作都应该有 try-catch：
+```typescript
+try {
+  // 操作
+} catch (error) {
+  console.error('Error:', error);
+  // 处理错误
+}
+```
+
+### 进程检查
+如果需要检查应用是否运行：
+```powershell
+Get-Process | Where-Object {$_.ProcessName -like "*electron*"}
+```
+
+---
+
+## 📦 依赖管理
+
+### better-sqlite3 特殊处理
+- 如果编译失败，使用：`npm install better-sqlite3 --build-from-source=false`
+- 需要 `@types/better-sqlite3` 类型定义
+- 导入时使用别名避免冲突：`import DatabaseLib from 'better-sqlite3'`
+
+### 安装依赖
+```bash
+npm install --ignore-scripts  # 跳过编译脚本
+npm install better-sqlite3 --build-from-source=false  # 使用预编译版本
+```
+
+---
+
+## 🎯 文件结构规则
+
+### 必须存在的文件
+- `src/main/main.ts` - Electron 主进程入口
+- `src/main/preload.ts` - 预加载脚本
+- `src/renderer/App.tsx` - React 主组件
+- `src/tracker/tracker.ts` - 活动追踪器
+- `src/tracker/database.ts` - 数据库操作
+- `src/settings/settings.ts` - 设置管理
+- `src/reporter/reporter.ts` - 报告生成
+
+### 构建输出
+- `dist/main/` - 主进程编译输出
+- `dist/renderer/` - 渲染进程构建输出
+
+---
+
+## ⚠️ 常见问题处理
+
+### 问题 1: 应用卡住
+**原因：** 通过 Cursor 工具运行了 `npm start`
+**解决：** 告诉用户在独立终端运行，或使用 `start-app.bat`
+
+### 问题 2: 资源加载失败
+**原因：** Vite 配置缺少 `base: './'`
+**解决：** 确保 `vite.config.ts` 中有 `base: './'`
+
+### 问题 3: TypeScript 编译错误
+**原因：** `rootDir` 配置不正确
+**解决：** `tsconfig.main.json` 中 `rootDir` 应该是 `"./src"`，`outDir` 应该是 `"./dist"`
+
+### 问题 4: better-sqlite3 编译失败
+**原因：** 缺少 C++ 编译工具或版本不兼容
+**解决：** 使用预编译版本或安装 Visual Studio Build Tools
+
+---
+
+## 🚀 启动应用的标准流程
+
+### 开发模式（告诉用户）
+```bash
+# 1. 打开独立终端
+# 2. 运行
+npm run dev
+```
+
+### 生产模式（告诉用户）
+```bash
+# 1. 构建
+npm run build
+
+# 2. 在独立终端运行
+npm start
+```
+
+### 或者使用脚本
+```bash
+# 双击 start-app.bat
+```
+
+---
+
+## 📝 代码规范
+
+### 错误处理模式
+```typescript
+// ✅ 正确
+try {
+  const result = await someAsyncOperation();
+  return result;
+} catch (error) {
+  console.error('Operation failed:', error);
+  return null; // 或抛出错误
+}
+
+// ❌ 错误
+const result = await someAsyncOperation(); // 没有错误处理
+```
+
+### 类型安全
+```typescript
+// ✅ 正确
+let trayIcon: Electron.NativeImage = nativeImage.createEmpty();
+
+// ❌ 错误
+let trayIcon: Electron.NativeImage; // 未初始化
+```
+
+### IPC 通信
+```typescript
+// 主进程
+ipcMain.handle('get-settings', async () => {
+  if (!settings) return null;
+  return settings.getSettings();
+});
+
+// 渲染进程（通过 preload）
+window.electronAPI.getSettings()
+```
+
+---
+
+## 🎓 最佳实践总结
+
+1. **运行应用：** 永远在独立终端中运行，不要通过 Cursor 工具
+2. **构建项目：** 可以在 Cursor 工具中运行（通常很快）
+3. **检查状态：** 使用快速检查命令，不要等待长时间进程
+4. **错误处理：** 所有异步操作都要有错误处理
+5. **类型安全：** 确保所有变量在使用前已初始化
+6. **路径配置：** Electron 应用必须使用相对路径
+
+---
+
+## 🔍 调试检查清单
+
+当用户报告问题时，按以下顺序检查：
+
+1. ✅ 构建文件是否存在？ (`dist/main/main.js`, `dist/renderer/index.html`)
+2. ✅ TypeScript 编译是否成功？ (`npx tsc -p tsconfig.main.json`)
+3. ✅ 依赖是否安装？ (`Test-Path node_modules`)
+4. ✅ better-sqlite3 是否正常？ (`node -e "require('better-sqlite3')"`)
+5. ✅ 应用是否在运行？ (`Get-Process | Where-Object {$_.ProcessName -like "*electron*"}`)
+6. ✅ 是否有错误日志？ (检查控制台输出)
+
+---
+
+## 📌 重要提醒
+
+**永远记住：**
+- Electron 应用是持续运行的进程
+- 不要通过 Cursor 工具运行 `npm start` 或 `npm run dev`
+- 告诉用户在独立终端中运行
+- 或者提供启动脚本（如 `start-app.bat`）
+

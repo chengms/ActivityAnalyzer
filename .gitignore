@@ -1,0 +1,17 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+*.db
+*.db-journal
+reports/*.pdf
+reports/*.xlsx
+reports/*.html
+.env
+.vscode/
+.idea/
+
+# TypeScript 编译输出（在源目录中）
+src/**/*.js
+src/**/*.js.map
+
