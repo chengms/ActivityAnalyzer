@@ -1,4 +1,5 @@
 import { Database, ActivityRecord } from './database';
+import activeWin from 'active-win';
 
 export class ActivityTracker {
   private database: Database;
@@ -64,10 +65,13 @@ export class ActivityTracker {
     this.saveCurrentActivity();
   }
 
-  private checkActivity() {
+  private async checkActivity() {
     try {
-      const activeApp = this.getActiveApplication();
-      const activeWindow = this.getActiveWindowTitle();
+      // 先获取窗口标题
+      const activeWindow = await this.getActiveWindowTitle();
+      
+      // 然后获取应用名称（传入窗口标题用于推断）
+      const activeApp = await this.getActiveApplication(activeWindow);
 
       // 如果应用或窗口发生变化
       if (activeApp !== this.currentApp || activeWindow !== this.currentWindow) {
@@ -116,61 +120,46 @@ export class ActivityTracker {
     }
   }
 
-  private getActiveApplication(): string {
+  private async getActiveApplication(windowTitle?: string): Promise<string> {
     // Windows 平台获取活动应用
     if (process.platform === 'win32') {
       try {
-        const { execSync } = require('child_process');
-        const fs = require('fs');
-        const path = require('path');
-        const os = require('os');
-        
-        // 使用临时文件避免引号转义问题
-        const tempFile = path.join(os.tmpdir(), `get-app-${Date.now()}.ps1`);
-        const psScript = `
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class Win32 {
-  [DllImport("user32.dll")]
-  public static extern IntPtr GetForegroundWindow();
-  [DllImport("user32.dll")]
-  public static extern int GetWindowThreadProcessId(IntPtr hWnd, out int ProcessId);
-  public static int GetActiveProcessId() {
-    IntPtr hwnd = GetForegroundWindow();
-    int pid;
-    GetWindowThreadProcessId(hwnd, out pid);
-    return pid;
-  }
-}
-"@
-$pid = [Win32]::GetActiveProcessId()
-(Get-Process -Id $pid).ProcessName
-`;
-        
-        fs.writeFileSync(tempFile, psScript, 'utf-8');
-        
-        try {
-          const result = execSync(
-            `chcp 65001 >nul && powershell -ExecutionPolicy Bypass -NoProfile -File "${tempFile}"`,
-            {
-              encoding: 'utf-8',
-              timeout: 2000,
-              stdio: ['pipe', 'pipe', 'ignore'],
-              shell: true,
-            }
-          );
-          let appName = result.toString('utf-8').trim();
-          // 清理无效字符
-          appName = appName.replace(/^\uFEFF/, ''); // 移除BOM
-          appName = appName.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, ''); // 移除控制字符
-          return appName || 'Unknown';
-        } finally {
-          // 清理临时文件
-          try {
-            fs.unlinkSync(tempFile);
-          } catch {}
+        // 首先尝试从窗口标题推断应用名称
+        if (windowTitle && windowTitle !== 'Unknown Window') {
+          const inferredApp = this.inferAppFromWindowTitle(windowTitle);
+          if (inferredApp) {
+            return inferredApp;
+          }
         }
+
+        // 使用 active-win 直接调用系统API
+        const result = await activeWin();
+        
+        if (!result) {
+          return 'Unknown';
+        }
+
+        // 从进程路径提取应用名称
+        let appName = result.owner?.name || 'Unknown';
+        
+        // 如果有进程路径，从路径提取（更准确）
+        if (result.owner?.path) {
+          const path = require('path');
+          appName = path.basename(result.owner.path, path.extname(result.owner.path));
+        }
+
+        // 清理应用名称
+        appName = appName.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '');
+        
+        // 再次尝试从进程名推断应用名称
+        if (appName && windowTitle) {
+          const inferredFromProcess = this.inferAppFromProcessName(appName, windowTitle);
+          if (inferredFromProcess) {
+            return inferredFromProcess;
+          }
+        }
+        
+        return appName || 'Unknown';
       } catch (error) {
         console.error('Error getting active application:', error);
         return 'Unknown';
@@ -179,107 +168,138 @@ $pid = [Win32]::GetActiveProcessId()
     return 'Unknown';
   }
 
-  private getActiveWindowTitle(): string {
+  // 从窗口标题推断应用名称
+  private inferAppFromWindowTitle(windowTitle: string): string | null {
+    if (!windowTitle || windowTitle === 'Unknown Window') {
+      return null;
+    }
+
+    // 应用名称映射表（窗口标题关键词 -> 应用名称）
+    const appMappings: { [key: string]: string } = {
+      'weixin': '微信',
+      '微信': '微信',
+      'wechat': '微信',
+      'WeChat': '微信',
+      'chrome': 'Chrome',
+      'edge': 'Microsoft Edge',
+      'firefox': 'Firefox',
+      'visual studio code': 'VS Code',
+      'vscode': 'VS Code',
+      'cursor': 'Cursor',
+      'notepad++': 'Notepad++',
+      'notepad': '记事本',
+      'word': 'Microsoft Word',
+      'excel': 'Microsoft Excel',
+      'powerpoint': 'Microsoft PowerPoint',
+      'outlook': 'Microsoft Outlook',
+      'teams': 'Microsoft Teams',
+      'slack': 'Slack',
+      'discord': 'Discord',
+      'qq': 'QQ',
+      '钉钉': '钉钉',
+      'dingtalk': '钉钉',
+      '飞书': '飞书',
+      'feishu': '飞书',
+      'wps': 'WPS',
+      'photoshop': 'Photoshop',
+      'illustrator': 'Illustrator',
+      'premiere': 'Premiere Pro',
+      'after effects': 'After Effects',
+    };
+
+    const lowerTitle = windowTitle.toLowerCase();
+    
+    // 检查是否包含关键词（优先匹配更长的关键词）
+    const sortedMappings = Object.entries(appMappings).sort((a, b) => b[0].length - a[0].length);
+    
+    for (const [keyword, appName] of sortedMappings) {
+      if (lowerTitle.includes(keyword.toLowerCase())) {
+        return appName;
+      }
+    }
+
+    return null;
+  }
+
+  // 从进程名和窗口标题推断应用名称
+  private inferAppFromProcessName(processName: string, windowTitle: string): string | null {
+    if (!processName || !windowTitle) {
+      return null;
+    }
+
+    const lowerProcess = processName.toLowerCase();
+    const lowerTitle = windowTitle.toLowerCase();
+
+    // 如果进程名是powershell但窗口标题包含特定应用，推断应用名称
+    if (lowerProcess === 'powershell' || lowerProcess === 'pwsh') {
+      // 检查窗口标题
+      if (lowerTitle.includes('weixin') || lowerTitle.includes('微信') || lowerTitle.includes('wechat')) {
+        return '微信';
+      }
+      if (lowerTitle.includes('qq')) {
+        return 'QQ';
+      }
+      if (lowerTitle.includes('钉钉') || lowerTitle.includes('dingtalk')) {
+        return '钉钉';
+      }
+      if (lowerTitle.includes('飞书') || lowerTitle.includes('feishu')) {
+        return '飞书';
+      }
+    }
+
+    // 进程名直接匹配
+    const processMappings: { [key: string]: string } = {
+      'wechat': '微信',
+      'weixin': '微信',
+      'wechatapp': '微信',
+      'qq': 'QQ',
+      'tim': 'QQ',
+      'dingtalk': '钉钉',
+      'feishu': '飞书',
+      'chrome': 'Chrome',
+      'msedge': 'Microsoft Edge',
+      'firefox': 'Firefox',
+      'code': 'VS Code',
+      'cursor': 'Cursor',
+      'notepad++': 'Notepad++',
+      'notepad': '记事本',
+      'winword': 'Microsoft Word',
+      'excel': 'Microsoft Excel',
+      'powerpnt': 'Microsoft PowerPoint',
+      'outlook': 'Microsoft Outlook',
+      'teams': 'Microsoft Teams',
+    };
+
+    for (const [keyword, appName] of Object.entries(processMappings)) {
+      if (lowerProcess.includes(keyword.toLowerCase())) {
+        return appName;
+      }
+    }
+
+    return null;
+  }
+
+  private async getActiveWindowTitle(): Promise<string> {
     // Windows 平台获取活动窗口标题
     if (process.platform === 'win32') {
       try {
-        const { execSync } = require('child_process');
-        const fs = require('fs');
-        const path = require('path');
-        const os = require('os');
+        // 使用 active-win 直接调用系统API
+        const result = await activeWin();
         
-        // 使用临时文件避免引号转义问题
-        const tempFile = path.join(os.tmpdir(), `get-title-${Date.now()}.ps1`);
-        // 使用Base64编码来避免编码问题
-        const psScript = `
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$OutputEncoding = [System.Text.Encoding]::UTF8
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-using System.Text;
-public class Win32 {
-  [DllImport("user32.dll")]
-  public static extern IntPtr GetForegroundWindow();
-  [DllImport("user32.dll", CharSet=CharSet.Unicode)]
-  public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
-  public static string GetActiveWindowTitle() {
-    IntPtr hwnd = GetForegroundWindow();
-    if (hwnd == IntPtr.Zero) return "";
-    StringBuilder sb = new StringBuilder(1024);
-    int length = GetWindowText(hwnd, sb, 1024);
-    if (length == 0) return "";
-    return sb.ToString();
-  }
-}
-"@
-try {
-  $title = [Win32]::GetActiveWindowTitle()
-  if ($title -and $title.Length -gt 0) {
-    # 使用Base64编码输出，避免编码问题
-    $bytes = [System.Text.Encoding]::UTF8.GetBytes($title)
-    $base64 = [Convert]::ToBase64String($bytes)
-    Write-Output $base64
-  } else {
-    Write-Output ""
-  }
-} catch {
-  Write-Output ""
-}
-`;
-        
-        fs.writeFileSync(tempFile, psScript, 'utf-8');
-        
-        try {
-          // 使用chcp 65001设置UTF-8代码页，然后执行PowerShell
-          const result = execSync(
-            `chcp 65001 >nul 2>&1 && powershell -ExecutionPolicy Bypass -NoProfile -File "${tempFile}"`,
-            {
-              encoding: 'utf-8',
-              timeout: 3000,
-              stdio: ['pipe', 'pipe', 'ignore'],
-              shell: true,
-            }
-          );
-          
-          let output = result.toString('utf-8').trim();
-          
-          // 清理可能的BOM和换行符
-          output = output.replace(/^\uFEFF/, '').replace(/[\r\n]/g, '').trim();
-          
-          // 如果是Base64编码的，解码
-          if (output && /^[A-Za-z0-9+/=]+$/.test(output)) {
-            try {
-              // Node.js环境中的Buffer
-              const title = Buffer.from(output, 'base64').toString('utf-8');
-              
-              // 清理无效字符
-              let cleanTitle = title.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '');
-              
-              // 如果标题为空或只包含空白字符，返回Unknown Window
-              if (!cleanTitle || /^\s*$/.test(cleanTitle)) {
-                return 'Unknown Window';
-              }
-              
-              return cleanTitle;
-            } catch (decodeError) {
-              // 如果解码失败，尝试直接使用
-              console.warn('Failed to decode base64 title, using raw:', decodeError);
-            }
-          }
-          
-          // 如果不是Base64，直接使用（向后兼容）
-          if (output && !/^\s*$/.test(output)) {
-            return output.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '');
-          }
-          
+        if (!result || !result.title) {
           return 'Unknown Window';
-        } finally {
-          // 清理临时文件
-          try {
-            fs.unlinkSync(tempFile);
-          } catch {}
         }
+
+        // 清理窗口标题
+        let title = result.title.trim();
+        title = title.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '');
+        
+        // 如果标题为空或只包含空白字符，返回Unknown Window
+        if (!title || /^\s*$/.test(title)) {
+          return 'Unknown Window';
+        }
+        
+        return title;
       } catch (error) {
         console.error('Error getting active window title:', error);
         return 'Unknown Window';

@@ -16,38 +16,56 @@ body {
 .app {
   min-height: 100vh;
   display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+
+.app-main-container {
+  flex: 1;
+  display: flex;
   flex-direction: column;
+  overflow: hidden;
+  margin-left: 240px;
+  transition: margin-left 0.3s ease;
+}
+
+.app-main-container.sidebar-collapsed {
+  margin-left: 64px;
 }
 
 .app-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 20px 30px;
+  background: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 16px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  z-index: 10;
 }
 
-.app-header h1 {
-  font-size: 24px;
-  font-weight: 600;
-}
-
-.header-controls {
+.header-left {
   display: flex;
-  gap: 15px;
   align-items: center;
+  gap: 16px;
 }
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 
 .tracking-status {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
+  padding: 8px 16px;
+  background: #f5f5f5;
+  border-radius: 8px;
   font-size: 14px;
+  border: 1px solid #e0e0e0;
 }
 
 .status-indicator {
@@ -57,12 +75,17 @@ body {
 }
 
 .status-indicator.active {
-  color: #4ade80;
+  color: #22c55e;
 }
 
 .status-indicator.inactive {
-  color: #f87171;
+  color: #ef4444;
   animation: none;
+}
+
+.status-text {
+  font-weight: 500;
+  color: #333;
 }
 
 @keyframes pulse {
@@ -80,22 +103,32 @@ body {
 
 .date-picker {
   padding: 8px 12px;
-  border: none;
+  border: 1px solid #e0e0e0;
   border-radius: 6px;
   font-size: 14px;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
+  background: #ffffff;
+  color: #333;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
-.date-picker::-webkit-calendar-picker-indicator {
-  filter: invert(1);
-  cursor: pointer;
+.date-picker:hover {
+  border-color: #667eea;
 }
 
 .date-picker:focus {
-  outline: 2px solid rgba(255, 255, 255, 0.5);
-  outline-offset: 2px;
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.date-picker::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.date-picker::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
 }
 
 .btn {
@@ -175,10 +208,9 @@ body {
 
 .app-main {
   flex: 1;
-  padding: 30px;
-  max-width: 1400px;
-  margin: 0 auto;
-  width: 100%;
+  padding: 24px;
+  overflow-y: auto;
+  background: #f5f5f5;
 }
 
 .loading {

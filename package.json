@@ -36,6 +36,7 @@
     "vite": "^5.0.8"
   },
   "dependencies": {
+    "active-win": "^8.2.1",
     "better-sqlite3": "^12.5.0",
     "chart.js": "^4.4.1",
     "date-fns": "^3.0.6",

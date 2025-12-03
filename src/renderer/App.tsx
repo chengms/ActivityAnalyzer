@@ -8,6 +8,7 @@ import { TimelineDetail } from './components/TimelineDetail';
 import { ReportViewer } from './components/ReportViewer';
 import { ReportHistory } from './components/ReportHistory';
 import { Settings } from './components/Settings';
+import { Sidebar } from './components/Sidebar';
 import './App.css';
 
 declare global {
@@ -53,6 +54,7 @@ function App() {
   const [reportDate, setReportDate] = useState<string>('');
   const [reportPaths, setReportPaths] = useState<{ htmlPath?: string; excelPath?: string }>({});
   const [showReportHistory, setShowReportHistory] = useState<boolean>(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
 
   useEffect(() => {
     loadData();
@@ -215,53 +217,39 @@ function App() {
 
   return (
     <div className="app">
-      <header className="app-header">
-        <h1>📊 活动分析器</h1>
-        <div className="header-controls">
-          <div className="tracking-status">
-            <span className={`status-indicator ${isTracking ? 'active' : 'inactive'}`}>
-              {isTracking ? '●' : '○'}
-            </span>
-            <span className="status-text">
-              {isTracking ? '正在记录' : '已停止'}
-            </span>
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        onSettings={() => setShowSettings(true)}
+        onGenerateReport={handleGenerateReport}
+        onReportHistory={() => setShowReportHistory(true)}
+        onToggleTracking={handleToggleTracking}
+        isTracking={isTracking}
+        reportGenerating={reportGenerating}
+        canGenerateReport={!!dailySummary}
+      />
+      
+      <div className={`app-main-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+        <header className="app-header">
+          <div className="header-left">
+            <div className="tracking-status">
+              <span className={`status-indicator ${isTracking ? 'active' : 'inactive'}`}>
+                {isTracking ? '●' : '○'}
+              </span>
+              <span className="status-text">
+                {isTracking ? '正在记录' : '已停止'}
+              </span>
+            </div>
           </div>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="date-picker"
-          />
-          <button
-            onClick={handleToggleTracking}
-            className={`btn ${isTracking ? 'btn-stop' : 'btn-start'}`}
-            title={isTracking ? '停止记录' : '开始记录'}
-          >
-            {isTracking ? '⏸️ 停止记录' : '▶️ 开始记录'}
-          </button>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="btn btn-icon"
-            title="设置"
-          >
-            ⚙️
-          </button>
-          <button
-            onClick={() => setShowReportHistory(true)}
-            className="btn btn-secondary"
-            title="查看历史报告"
-          >
-            📋 历史报告
-          </button>
-          <button
-            onClick={handleGenerateReport}
-            disabled={reportGenerating || !dailySummary}
-            className="btn btn-primary"
-          >
-            {reportGenerating ? '生成中...' : '📄 生成报告'}
-          </button>
-        </div>
-      </header>
+          <div className="header-right">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="date-picker"
+            />
+          </div>
+        </header>
 
       {showSettings && (
         <Settings onClose={() => setShowSettings(false)} />
@@ -291,7 +279,7 @@ function App() {
         />
       )}
 
-      <main className="app-main">
+        <main className="app-main">
         {loading ? (
           <div className="loading">加载中...</div>
         ) : dailySummary ? (
@@ -348,7 +336,8 @@ function App() {
             <p>选择日期没有活动记录</p>
           </div>
         )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
