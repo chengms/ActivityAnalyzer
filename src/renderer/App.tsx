@@ -213,7 +213,7 @@ function App() {
   const handleDeleteWindow = async (appName: string, windowTitle: string) => {
     if (!window.electronAPI.deleteActivityByAppWindow) return;
     
-    const confirmed = window.confirm(`确定要删除 "${appName}" - "${windowTitle === 'Unknown Window' ? '(无窗口标题)' : windowTitle}" 的所有记录吗？`);
+    const confirmed = window.confirm(`确定要删除 "${appName}" - "${windowTitle === 'Unknown Window' ? '(无窗口标题)' : windowTitle}" 在 ${selectedDate} 的所有记录吗？`);
     if (!confirmed) return;
 
     try {

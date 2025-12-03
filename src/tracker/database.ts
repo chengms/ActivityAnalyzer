@@ -237,13 +237,30 @@ export class Database {
   deleteActivityByAppAndWindow(date: string, appName: string, windowTitle: string): number {
     if (!this.db) return 0;
     
-    const stmt = this.db.prepare(`
-      DELETE FROM activities 
-      WHERE date = ? AND appName = ? AND (windowTitle = ? OR (windowTitle IS NULL AND ? IS NULL) OR (windowTitle = '' AND ? = ''))
-    `);
-    
-    const result = stmt.run(date, appName, windowTitle || null, windowTitle || null, windowTitle || '');
-    return result.changes || 0;
+    // 根据 getWindowUsage 的逻辑，'Unknown Window' 表示数据库中存储的是 NULL 或空字符串
+    // 我们需要匹配数据库中实际存储的值
+    if (windowTitle === 'Unknown Window') {
+      // 匹配数据库中 windowTitle 为 NULL 或空字符串的记录
+      const stmt = this.db.prepare(`
+        DELETE FROM activities 
+        WHERE date = ? AND appName = ? AND (windowTitle IS NULL OR windowTitle = '')
+      `);
+      return (stmt.run(date, appName).changes || 0);
+    } else if (!windowTitle || windowTitle.trim() === '') {
+      // 如果传入的 windowTitle 本身就是空，也匹配 NULL 或空字符串
+      const stmt = this.db.prepare(`
+        DELETE FROM activities 
+        WHERE date = ? AND appName = ? AND (windowTitle IS NULL OR windowTitle = '')
+      `);
+      return (stmt.run(date, appName).changes || 0);
+    } else {
+      // 精确匹配具体的窗口标题
+      const stmt = this.db.prepare(`
+        DELETE FROM activities 
+        WHERE date = ? AND appName = ? AND windowTitle = ?
+      `);
+      return (stmt.run(date, appName, windowTitle).changes || 0);
+    }
   }
 
   // 删除指定应用的所有记录（所有日期）

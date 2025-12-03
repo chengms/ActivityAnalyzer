@@ -222,8 +222,14 @@ export class ActivityTracker {
         // 如果有进程路径，从路径提取（更准确）
         if (result.owner.path) {
           const path = require('path');
-          appName = path.basename(result.owner.path, path.extname(result.owner.path));
-          console.log(`[AppName] Extracted from path: ${result.owner.path} -> ${appName}`);
+          const extractedName = path.basename(result.owner.path, path.extname(result.owner.path));
+          // 只有当提取的名称不为空时才使用，否则保留之前的 appName
+          if (extractedName && extractedName.trim() !== '') {
+            appName = extractedName;
+            console.log(`[AppName] Extracted from path: ${result.owner.path} -> ${appName}`);
+          } else {
+            console.log(`[AppName] Path basename is empty, keeping: ${appName}`);
+          }
         } else if (result.owner.name) {
           console.log(`[AppName] Using owner name: ${result.owner.name}`);
         }
@@ -249,9 +255,18 @@ export class ActivityTracker {
           const fallbackResult = await this.getActiveWindowFallback();
           if (fallbackResult?.owner?.path) {
             const path = require('path');
-            const appName = path.basename(fallbackResult.owner.path, path.extname(fallbackResult.owner.path));
-            console.log(`[AppName] Fallback succeeded: ${appName}`);
-            return appName;
+            const extractedName = path.basename(fallbackResult.owner.path, path.extname(fallbackResult.owner.path));
+            // 只有当提取的名称不为空时才使用，否则使用 owner.name 或 'Unknown'
+            if (extractedName && extractedName.trim() !== '') {
+              console.log(`[AppName] Fallback succeeded: ${extractedName}`);
+              return extractedName;
+            } else if (fallbackResult.owner.name) {
+              console.log(`[AppName] Fallback path basename empty, using owner name: ${fallbackResult.owner.name}`);
+              return fallbackResult.owner.name;
+            }
+          } else if (fallbackResult?.owner?.name) {
+            console.log(`[AppName] Fallback succeeded with owner name: ${fallbackResult.owner.name}`);
+            return fallbackResult.owner.name;
           }
         } catch (fallbackError) {
           console.error('[AppName] Fallback also failed:', fallbackError);
