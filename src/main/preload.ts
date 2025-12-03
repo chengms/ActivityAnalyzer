@@ -6,6 +6,7 @@ export interface AppSettings {
   startMinimized: boolean;
   minimizeToTray: boolean;
   closeToTray: boolean;
+  debugMode: boolean;
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -38,5 +39,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('tracking-status-changed', handler);
     return () => ipcRenderer.removeListener('tracking-status-changed', handler);
   },
+  // 删除活动记录
+  deleteActivityByAppWindow: (date: string, appName: string, windowTitle: string) => 
+    ipcRenderer.invoke('delete-activity-by-app-window', date, appName, windowTitle) as Promise<number>,
+  deleteActivityByApp: (appName: string) => 
+    ipcRenderer.invoke('delete-activity-by-app', appName) as Promise<number>,
+  deleteActivityByAppDate: (date: string, appName: string) => 
+    ipcRenderer.invoke('delete-activity-by-app-date', date, appName) as Promise<number>,
+  deleteUnknownActivities: (date?: string) => 
+    ipcRenderer.invoke('delete-unknown-activities', date) as Promise<number>,
 });
 

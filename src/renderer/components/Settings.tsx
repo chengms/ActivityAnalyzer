@@ -7,6 +7,7 @@ interface AppSettings {
   startMinimized: boolean;
   minimizeToTray: boolean;
   closeToTray: boolean;
+  debugMode: boolean;
 }
 
 interface SettingsProps {
@@ -210,6 +211,28 @@ export function Settings({ onClose }: SettingsProps) {
               </div>
               <p className="setting-description">
                 启用后，点击关闭按钮会将窗口隐藏到系统托盘，而不是退出应用。
+              </p>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <h3>调试设置</h3>
+            <div className="setting-item">
+              <label>
+                <span>调试模式（打开开发者工具）</span>
+              </label>
+              <div className="setting-control">
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    checked={settings.debugMode}
+                    onChange={(e) => handleChange('debugMode', e.target.checked)}
+                  />
+                  <span className="slider"></span>
+                </label>
+              </div>
+              <p className="setting-description">
+                启用后，将自动打开开发者工具控制台，方便查看调试日志和排查问题。
               </p>
             </div>
           </div>

@@ -5,9 +5,11 @@ import './WindowUsageList.css';
 interface WindowUsageListProps {
   usage: WindowUsage[];
   onViewDetail?: () => void;
+  onDelete?: (appName: string, windowTitle: string) => void;
+  selectedDate: string;
 }
 
-export function WindowUsageList({ usage, onViewDetail }: WindowUsageListProps) {
+export function WindowUsageList({ usage, onViewDetail, onDelete, selectedDate }: WindowUsageListProps) {
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -69,6 +71,15 @@ export function WindowUsageList({ usage, onViewDetail }: WindowUsageListProps) {
               <span>使用次数: {item.usageCount}</span>
               <span>首次: {formatTime(item.firstSeen)}</span>
               <span>最后: {formatTime(item.lastSeen)}</span>
+              {onDelete && (
+                <button 
+                  className="btn-delete-item"
+                  onClick={() => onDelete(item.appName, item.windowTitle)}
+                  title="删除此记录"
+                >
+                  🗑️
+                </button>
+              )}
             </div>
           </div>
         );

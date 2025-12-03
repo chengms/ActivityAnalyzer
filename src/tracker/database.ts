@@ -233,6 +233,66 @@ export class Database {
     return stmt.all(date) as ActivityRecord[];
   }
 
+  // 删除指定应用和窗口的记录（按日期）
+  deleteActivityByAppAndWindow(date: string, appName: string, windowTitle: string): number {
+    if (!this.db) return 0;
+    
+    const stmt = this.db.prepare(`
+      DELETE FROM activities 
+      WHERE date = ? AND appName = ? AND (windowTitle = ? OR (windowTitle IS NULL AND ? IS NULL) OR (windowTitle = '' AND ? = ''))
+    `);
+    
+    const result = stmt.run(date, appName, windowTitle || null, windowTitle || null, windowTitle || '');
+    return result.changes || 0;
+  }
+
+  // 删除指定应用的所有记录（所有日期）
+  deleteActivityByApp(appName: string): number {
+    if (!this.db) return 0;
+    
+    const stmt = this.db.prepare(`
+      DELETE FROM activities 
+      WHERE appName = ?
+    `);
+    
+    const result = stmt.run(appName);
+    return result.changes || 0;
+  }
+
+  // 删除指定应用在指定日期的所有记录
+  deleteActivityByAppAndDate(date: string, appName: string): number {
+    if (!this.db) return 0;
+    
+    const stmt = this.db.prepare(`
+      DELETE FROM activities 
+      WHERE date = ? AND appName = ?
+    `);
+    
+    const result = stmt.run(date, appName);
+    return result.changes || 0;
+  }
+
+  // 删除所有Unknown记录
+  deleteUnknownActivities(date?: string): number {
+    if (!this.db) return 0;
+    
+    if (date) {
+      const stmt = this.db.prepare(`
+        DELETE FROM activities 
+        WHERE date = ? AND (appName = 'Unknown' OR appName = '' OR appName IS NULL)
+      `);
+      const result = stmt.run(date);
+      return result.changes || 0;
+    } else {
+      const stmt = this.db.prepare(`
+        DELETE FROM activities 
+        WHERE appName = 'Unknown' OR appName = '' OR appName IS NULL
+      `);
+      const result = stmt.run();
+      return result.changes || 0;
+    }
+  }
+
   close() {
     if (this.db) {
       this.db.close();

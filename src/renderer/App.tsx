@@ -34,6 +34,10 @@ declare global {
       getReportList?: () => Promise<Array<{ date: string; htmlPath: string; excelPath: string; exists: boolean }>>;
       readHTMLReport?: (htmlPath: string) => Promise<string | null>;
       openReportFile?: (filePath: string) => Promise<void>;
+      deleteActivityByAppWindow?: (date: string, appName: string, windowTitle: string) => Promise<number>;
+      deleteActivityByApp?: (appName: string) => Promise<number>;
+      deleteActivityByAppDate?: (date: string, appName: string) => Promise<number>;
+      deleteUnknownActivities?: (date?: string) => Promise<number>;
     };
   }
 }
@@ -206,6 +210,47 @@ function App() {
     }
   };
 
+  const handleDeleteWindow = async (appName: string, windowTitle: string) => {
+    if (!window.electronAPI.deleteActivityByAppWindow) return;
+    
+    const confirmed = window.confirm(`确定要删除 "${appName}" - "${windowTitle === 'Unknown Window' ? '(无窗口标题)' : windowTitle}" 的所有记录吗？`);
+    if (!confirmed) return;
+
+    try {
+      const deleted = await window.electronAPI.deleteActivityByAppWindow(selectedDate, appName, windowTitle);
+      if (deleted > 0) {
+        alert(`已删除 ${deleted} 条记录`);
+        loadData(); // 重新加载数据
+      } else {
+        alert('没有找到要删除的记录');
+      }
+    } catch (error) {
+      console.error('Error deleting activity:', error);
+      alert('删除失败');
+    }
+  };
+
+  const handleDeleteApp = async (appName: string) => {
+    if (!window.electronAPI.deleteActivityByAppDate) return;
+    
+    const confirmed = window.confirm(`确定要删除 "${appName}" 在 ${selectedDate} 的所有记录吗？`);
+    if (!confirmed) return;
+
+    try {
+      const deleted = await window.electronAPI.deleteActivityByAppDate(selectedDate, appName);
+      if (deleted > 0) {
+        alert(`已删除 ${deleted} 条记录`);
+        loadData(); // 重新加载数据
+      } else {
+        alert('没有找到要删除的记录');
+      }
+    } catch (error) {
+      console.error('Error deleting activity:', error);
+      alert('删除失败');
+    }
+  };
+
+
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -318,13 +363,19 @@ function App() {
             <div className="content-grid">
               <div className="content-panel">
                 <h2>应用使用排行</h2>
-                <AppUsageList usage={appUsage.slice(0, 10)} />
+                <AppUsageList 
+                  usage={appUsage.slice(0, 10)} 
+                  onDelete={handleDeleteApp}
+                  selectedDate={selectedDate}
+                />
               </div>
               <div className="content-panel">
                 <h2>窗口使用统计</h2>
                 <WindowUsageList 
                   usage={windowUsage} 
                   onViewDetail={handleViewTimelineDetail}
+                  onDelete={handleDeleteWindow}
+                  selectedDate={selectedDate}
                 />
               </div>
             </div>

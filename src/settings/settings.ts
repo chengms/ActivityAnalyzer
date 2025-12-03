@@ -8,6 +8,7 @@ export interface AppSettings {
   startMinimized: boolean; // 启动时最小化
   minimizeToTray: boolean; // 最小化到托盘
   closeToTray: boolean; // 关闭到托盘
+  debugMode: boolean; // 调试模式（打开开发者工具）
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -16,6 +17,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   startMinimized: false,
   minimizeToTray: true,
   closeToTray: true,
+  debugMode: false, // 默认关闭调试模式
 };
 
 export class Settings {

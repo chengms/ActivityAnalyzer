@@ -210,7 +210,10 @@ body {
   flex: 1;
   padding: 24px;
   overflow-y: auto;
+  overflow-x: hidden;
   background: #f5f5f5;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .loading {
@@ -292,6 +295,8 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: 20px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .content-panel {
@@ -299,6 +304,9 @@ body {
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .content-panel h2 {

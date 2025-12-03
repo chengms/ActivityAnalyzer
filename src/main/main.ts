@@ -62,6 +62,11 @@ function createWindow() {
     mainWindow.hide();
   }
 
+  // 如果启用了调试模式，打开开发者工具
+  if (settings?.getSetting('debugMode')) {
+    mainWindow.webContents.openDevTools();
+  }
+
   // 处理最小化到托盘
   mainWindow.on('minimize', (event: Electron.Event) => {
     if (settings?.getSetting('minimizeToTray')) {
@@ -286,6 +291,27 @@ ipcMain.handle('get-activity-timeline', async (event, date: string) => {
   return database.getActivityTimeline(date);
 });
 
+// 删除活动记录相关 IPC
+ipcMain.handle('delete-activity-by-app-window', async (event, date: string, appName: string, windowTitle: string) => {
+  if (!database) return 0;
+  return database.deleteActivityByAppAndWindow(date, appName, windowTitle);
+});
+
+ipcMain.handle('delete-activity-by-app', async (event, appName: string) => {
+  if (!database) return 0;
+  return database.deleteActivityByApp(appName);
+});
+
+ipcMain.handle('delete-activity-by-app-date', async (event, date: string, appName: string) => {
+  if (!database) return 0;
+  return database.deleteActivityByAppAndDate(date, appName);
+});
+
+ipcMain.handle('delete-unknown-activities', async (event, date?: string) => {
+  if (!database) return 0;
+  return database.deleteUnknownActivities(date);
+});
+
 ipcMain.handle('generate-report', async (event, date: string) => {
   if (!reporter) return { success: false, path: '' };
   return await reporter.generateDailyReport(date);
@@ -328,6 +354,15 @@ ipcMain.handle('update-settings', async (event, updates: Partial<AppSettings>) =
       await autoLauncher.enable();
     } else {
       await autoLauncher.disable();
+    }
+  }
+  
+  // 如果更新了调试模式，打开/关闭开发者工具
+  if (updates.debugMode !== undefined && mainWindow) {
+    if (updates.debugMode) {
+      mainWindow.webContents.openDevTools();
+    } else {
+      mainWindow.webContents.closeDevTools();
     }
   }
   

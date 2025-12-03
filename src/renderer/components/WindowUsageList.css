@@ -2,6 +2,9 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .empty-window-usage {
@@ -16,6 +19,9 @@
   border-radius: 8px;
   padding: 16px;
   transition: all 0.2s;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .window-usage-item:hover {
@@ -28,6 +34,8 @@
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 10px;
+  gap: 12px;
+  min-width: 0;
 }
 
 .window-usage-info {
@@ -35,6 +43,8 @@
   align-items: center;
   gap: 12px;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .window-usage-rank {
@@ -49,12 +59,17 @@
   flex-direction: column;
   gap: 4px;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .window-usage-app {
   font-weight: 600;
   color: #333;
   font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .window-usage-title {
@@ -63,7 +78,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 400px;
+  max-width: 100%;
+  flex: 1;
+  min-width: 0;
 }
 
 .window-usage-duration {
@@ -71,6 +88,8 @@
   color: #667eea;
   font-size: 15px;
   white-space: nowrap;
+  flex-shrink: 0;
+  flex-grow: 0;
 }
 
 .window-usage-bar-container {
@@ -93,6 +112,7 @@
   gap: 16px;
   font-size: 12px;
   color: #999;
+  align-items: center;
 }
 
 .window-usage-footer {
@@ -118,5 +138,23 @@
   background: #5568d3;
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.btn-delete-item {
+  background: transparent;
+  border: none;
+  color: #999;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  margin-left: auto;
+}
+
+.btn-delete-item:hover {
+  background: #fee;
+  color: #ef4444;
+  transform: scale(1.1);
 }
 

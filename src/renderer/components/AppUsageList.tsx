@@ -4,9 +4,11 @@ import './AppUsageList.css';
 
 interface AppUsageListProps {
   usage: AppUsage[];
+  onDelete?: (appName: string) => void;
+  selectedDate: string;
 }
 
-export function AppUsageList({ usage }: AppUsageListProps) {
+export function AppUsageList({ usage, onDelete, selectedDate }: AppUsageListProps) {
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -48,6 +50,15 @@ export function AppUsageList({ usage }: AppUsageListProps) {
             </div>
             <div className="usage-meta">
               <span>使用次数: {item.usageCount}</span>
+              {onDelete && (
+                <button 
+                  className="btn-delete-item"
+                  onClick={() => onDelete(item.appName)}
+                  title="删除此应用的所有记录"
+                >
+                  🗑️
+                </button>
+              )}
             </div>
           </div>
         );
