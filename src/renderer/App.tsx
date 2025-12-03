@@ -5,6 +5,8 @@ import { ActivityChart } from './components/ActivityChart';
 import { AppUsageList } from './components/AppUsageList';
 import { WindowUsageList } from './components/WindowUsageList';
 import { TimelineDetail } from './components/TimelineDetail';
+import { ReportViewer } from './components/ReportViewer';
+import { ReportHistory } from './components/ReportHistory';
 import { Settings } from './components/Settings';
 import './App.css';
 
@@ -16,7 +18,10 @@ declare global {
       getDailySummary: (date: string) => Promise<DailySummary | null>;
       getWindowUsage?: (date: string) => Promise<WindowUsage[]>;
       getActivityTimeline?: (date: string) => Promise<any[]>;
-      generateReport: (date: string) => Promise<{ success: boolean; path: string }>;
+      generateReport: (date: string) => Promise<{ success: boolean; path: string; htmlContent?: string; htmlPath?: string; excelPath?: string }>;
+      getReportList?: () => Promise<Array<{ date: string; htmlPath: string; excelPath: string; exists: boolean }>>;
+      readHTMLReport?: (htmlPath: string) => Promise<string | null>;
+      openReportFile?: (filePath: string) => Promise<void>;
       getSettings?: () => Promise<any>;
       updateSettings?: (updates: any) => Promise<boolean>;
       getAutoStartStatus?: () => Promise<boolean>;
@@ -25,6 +30,9 @@ declare global {
       stopTracking?: () => Promise<boolean>;
       getTrackingStatus?: () => Promise<boolean>;
       onTrackingStatusChanged?: (callback: (isRunning: boolean) => void) => (() => void) | undefined;
+      getReportList?: () => Promise<Array<{ date: string; htmlPath: string; excelPath: string; exists: boolean }>>;
+      readHTMLReport?: (htmlPath: string) => Promise<string | null>;
+      openReportFile?: (filePath: string) => Promise<void>;
     };
   }
 }
@@ -40,6 +48,11 @@ function App() {
   const [isTracking, setIsTracking] = useState<boolean>(true);
   const [showTimelineDetail, setShowTimelineDetail] = useState<boolean>(false);
   const [timelineRecords, setTimelineRecords] = useState<any[]>([]);
+  const [showReportViewer, setShowReportViewer] = useState<boolean>(false);
+  const [reportContent, setReportContent] = useState<string>('');
+  const [reportDate, setReportDate] = useState<string>('');
+  const [reportPaths, setReportPaths] = useState<{ htmlPath?: string; excelPath?: string }>({});
+  const [showReportHistory, setShowReportHistory] = useState<boolean>(false);
 
   useEffect(() => {
     loadData();
@@ -104,8 +117,38 @@ function App() {
     setReportGenerating(true);
     try {
       const result = await window.electronAPI.generateReport(selectedDate);
+      console.log('Report generation result:', result);
+      
       if (result.success) {
-        alert(`报告生成成功！\n路径: ${result.path}`);
+        if (result.htmlContent) {
+          // 显示报告查看器
+          console.log('Showing report viewer with content length:', result.htmlContent.length);
+          setReportContent(result.htmlContent);
+          setReportDate(selectedDate);
+          setReportPaths({
+            htmlPath: result.htmlPath,
+            excelPath: result.excelPath,
+          });
+          setShowReportViewer(true);
+        } else {
+          // 如果没有htmlContent，尝试从文件读取
+          if (result.htmlPath && window.electronAPI.readHTMLReport) {
+            const content = await window.electronAPI.readHTMLReport(result.htmlPath);
+            if (content) {
+              setReportContent(content);
+              setReportDate(selectedDate);
+              setReportPaths({
+                htmlPath: result.htmlPath,
+                excelPath: result.excelPath,
+              });
+              setShowReportViewer(true);
+            } else {
+              alert(`报告生成成功！\n路径: ${result.path}`);
+            }
+          } else {
+            alert(`报告生成成功！\n路径: ${result.path}`);
+          }
+        }
       } else {
         alert('报告生成失败');
       }
@@ -114,6 +157,20 @@ function App() {
       alert('报告生成失败');
     } finally {
       setReportGenerating(false);
+    }
+  };
+
+  const handleViewReport = (htmlPath: string, date: string, excelPath: string) => {
+    if (window.electronAPI.readHTMLReport) {
+      window.electronAPI.readHTMLReport(htmlPath).then((content) => {
+        if (content) {
+          setReportContent(content);
+          setReportDate(date);
+          setReportPaths({ htmlPath, excelPath });
+          setShowReportViewer(true);
+          setShowReportHistory(false);
+        }
+      });
     }
   };
 
@@ -190,6 +247,13 @@ function App() {
             ⚙️
           </button>
           <button
+            onClick={() => setShowReportHistory(true)}
+            className="btn btn-secondary"
+            title="查看历史报告"
+          >
+            📋 历史报告
+          </button>
+          <button
             onClick={handleGenerateReport}
             disabled={reportGenerating || !dailySummary}
             className="btn btn-primary"
@@ -207,6 +271,23 @@ function App() {
         <TimelineDetail 
           records={timelineRecords} 
           onClose={() => setShowTimelineDetail(false)} 
+        />
+      )}
+
+      {showReportViewer && (
+        <ReportViewer
+          htmlContent={reportContent}
+          date={reportDate}
+          htmlPath={reportPaths.htmlPath}
+          excelPath={reportPaths.excelPath}
+          onClose={() => setShowReportViewer(false)}
+        />
+      )}
+
+      {showReportHistory && (
+        <ReportHistory
+          onSelectReport={handleViewReport}
+          onClose={() => setShowReportHistory(false)}
         />
       )}
 

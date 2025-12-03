@@ -190,9 +190,10 @@ $pid = [Win32]::GetActiveProcessId()
         
         // 使用临时文件避免引号转义问题
         const tempFile = path.join(os.tmpdir(), `get-title-${Date.now()}.ps1`);
+        // 使用Base64编码来避免编码问题
         const psScript = `
-$OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -205,8 +206,8 @@ public class Win32 {
   public static string GetActiveWindowTitle() {
     IntPtr hwnd = GetForegroundWindow();
     if (hwnd == IntPtr.Zero) return "";
-    StringBuilder sb = new StringBuilder(512);
-    int length = GetWindowText(hwnd, sb, 512);
+    StringBuilder sb = new StringBuilder(1024);
+    int length = GetWindowText(hwnd, sb, 1024);
     if (length == 0) return "";
     return sb.ToString();
   }
@@ -214,9 +215,11 @@ public class Win32 {
 "@
 try {
   $title = [Win32]::GetActiveWindowTitle()
-  if ($title) {
-    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-    Write-Output $title
+  if ($title -and $title.Length -gt 0) {
+    # 使用Base64编码输出，避免编码问题
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($title)
+    $base64 = [Convert]::ToBase64String($bytes)
+    Write-Output $base64
   } else {
     Write-Output ""
   }
@@ -230,27 +233,47 @@ try {
         try {
           // 使用chcp 65001设置UTF-8代码页，然后执行PowerShell
           const result = execSync(
-            `chcp 65001 >nul && powershell -ExecutionPolicy Bypass -NoProfile -File "${tempFile}"`,
+            `chcp 65001 >nul 2>&1 && powershell -ExecutionPolicy Bypass -NoProfile -File "${tempFile}"`,
             {
               encoding: 'utf-8',
-              timeout: 2000,
+              timeout: 3000,
               stdio: ['pipe', 'pipe', 'ignore'],
               shell: true,
             }
           );
           
-          let title = result.toString('utf-8').trim();
+          let output = result.toString('utf-8').trim();
           
-          // 清理可能的BOM和无效字符
-          title = title.replace(/^\uFEFF/, ''); // 移除BOM
-          title = title.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, ''); // 移除控制字符
+          // 清理可能的BOM和换行符
+          output = output.replace(/^\uFEFF/, '').replace(/[\r\n]/g, '').trim();
           
-          // 如果标题为空或只包含空白字符，返回Unknown Window
-          if (!title || /^\s*$/.test(title)) {
-            return 'Unknown Window';
+          // 如果是Base64编码的，解码
+          if (output && /^[A-Za-z0-9+/=]+$/.test(output)) {
+            try {
+              // Node.js环境中的Buffer
+              const title = Buffer.from(output, 'base64').toString('utf-8');
+              
+              // 清理无效字符
+              let cleanTitle = title.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '');
+              
+              // 如果标题为空或只包含空白字符，返回Unknown Window
+              if (!cleanTitle || /^\s*$/.test(cleanTitle)) {
+                return 'Unknown Window';
+              }
+              
+              return cleanTitle;
+            } catch (decodeError) {
+              // 如果解码失败，尝试直接使用
+              console.warn('Failed to decode base64 title, using raw:', decodeError);
+            }
           }
           
-          return title;
+          // 如果不是Base64，直接使用（向后兼容）
+          if (output && !/^\s*$/.test(output)) {
+            return output.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '');
+          }
+          
+          return 'Unknown Window';
         } finally {
           // 清理临时文件
           try {

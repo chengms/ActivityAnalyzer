@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ActivityRecord } from '../../tracker/database';
 import './ActivityTimeline.css';
 
 interface ActivityTimelineProps {
   records: ActivityRecord[];
+  onViewAll?: () => void;
 }
 
-export function ActivityTimeline({ records }: ActivityTimelineProps) {
+export function ActivityTimeline({ records, onViewAll }: ActivityTimelineProps) {
+  const [showAll, setShowAll] = useState(false);
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -36,9 +38,12 @@ export function ActivityTimeline({ records }: ActivityTimelineProps) {
     return new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
   });
 
+  const displayRecords = showAll ? sortedRecords : sortedRecords.slice(0, 20);
+  const hasMore = sortedRecords.length > 20;
+
   return (
     <div className="activity-timeline">
-      {sortedRecords.slice(0, 20).map((record) => (
+      {displayRecords.map((record) => (
         <div key={record.id} className="timeline-item">
           <div className="timeline-time">
             {formatTime(record.startTime)}
@@ -53,9 +58,20 @@ export function ActivityTimeline({ records }: ActivityTimelineProps) {
           </div>
         </div>
       ))}
-      {sortedRecords.length > 20 && (
+      {hasMore && !showAll && (
         <div className="timeline-more">
-          还有 {sortedRecords.length - 20} 条记录...
+          <button 
+            className="btn-view-more" 
+            onClick={() => {
+              if (onViewAll) {
+                onViewAll();
+              } else {
+                setShowAll(true);
+              }
+            }}
+          >
+            查看全部 {sortedRecords.length} 条记录 →
+          </button>
         </div>
       )}
     </div>

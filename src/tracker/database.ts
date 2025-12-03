@@ -65,8 +65,8 @@ export class Database {
     `);
   }
 
-  insertActivity(record: ActivityRecord) {
-    if (!this.db) return;
+  insertActivity(record: ActivityRecord): number | null {
+    if (!this.db) return null;
     
     const stmt = this.db.prepare(`
       INSERT INTO activities (appName, windowTitle, startTime, endTime, duration, date)
@@ -82,7 +82,7 @@ export class Database {
       record.date
     );
     
-    return result.lastInsertRowid as number;
+    return (result.lastInsertRowid as number) || null;
   }
 
   // 查找或创建同一天相同应用和窗口的记录
@@ -186,25 +186,35 @@ export class Database {
   getWindowUsage(date: string): WindowUsage[] {
     if (!this.db) return [];
     
+    // 查询所有窗口，包括空标题的，按应用和窗口分组
     const stmt = this.db.prepare(`
       SELECT 
         appName,
-        COALESCE(windowTitle, '') as windowTitle,
+        CASE 
+          WHEN windowTitle IS NULL OR windowTitle = '' THEN 'Unknown Window'
+          ELSE windowTitle
+        END as windowTitle,
         SUM(duration) as totalDuration,
         COUNT(*) as usageCount,
         MIN(startTime) as firstSeen,
         MAX(COALESCE(endTime, startTime)) as lastSeen
       FROM activities
       WHERE date = ?
-      GROUP BY appName, COALESCE(windowTitle, '')
-      HAVING SUM(duration) > 0
+      GROUP BY appName, 
+        CASE 
+          WHEN windowTitle IS NULL OR windowTitle = '' THEN 'Unknown Window'
+          ELSE windowTitle
+        END
       ORDER BY totalDuration DESC
     `);
     
     const results = stmt.all(date) as WindowUsage[];
     
-    // 确保所有窗口都被包含，即使窗口标题为空
-    return results.map(item => ({
+    // 确保所有窗口都被包含
+    return results.filter(item => {
+      // 过滤掉总时长为0或负数的记录（但保留所有有数据的记录）
+      return item.totalDuration > 0;
+    }).map(item => ({
       ...item,
       windowTitle: item.windowTitle || 'Unknown Window',
     }));

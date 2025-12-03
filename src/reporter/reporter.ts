@@ -11,7 +11,7 @@ export class Reporter {
     this.database = database;
   }
 
-  async generateDailyReport(date: string): Promise<{ success: boolean; path: string }> {
+  async generateDailyReport(date: string): Promise<{ success: boolean; path: string; htmlContent?: string; htmlPath?: string; excelPath?: string }> {
     try {
       const summary = this.database.getDailySummary(date);
       if (!summary) {
@@ -29,15 +29,40 @@ export class Reporter {
       
       // 生成 HTML 报告
       const htmlPath = await this.generateHTMLReport(summary, reportsDir);
+      
+      // 获取HTML内容用于显示
+      const htmlContent = this.generateHTMLContent(summary);
 
       return {
         success: true,
         path: `Excel: ${excelPath}\nHTML: ${htmlPath}`,
+        htmlContent,
+        htmlPath,
+        excelPath,
       };
     } catch (error) {
       console.error('Error generating report:', error);
       return { success: false, path: '' };
     }
+  }
+
+  // 生成HTML内容（不保存文件，用于直接显示）
+  private generateHTMLContent(summary: DailySummary): string {
+    // 应用使用统计
+    const appUsageMap = new Map<string, { duration: number; count: number }>();
+    summary.records.forEach(record => {
+      const existing = appUsageMap.get(record.appName) || { duration: 0, count: 0 };
+      appUsageMap.set(record.appName, {
+        duration: existing.duration + record.duration,
+        count: existing.count + 1,
+      });
+    });
+
+    const appUsageList = Array.from(appUsageMap.entries())
+      .map(([appName, data]) => ({ appName, ...data }))
+      .sort((a, b) => b.duration - a.duration);
+
+    return this.generateHTMLReportContent(summary, appUsageList);
   }
 
   private async generateExcelReport(summary: DailySummary, reportsDir: string): Promise<string> {
@@ -116,6 +141,15 @@ export class Reporter {
       .map(([appName, data]) => ({ appName, ...data }))
       .sort((a, b) => b.duration - a.duration);
 
+    const html = this.generateHTMLReportContent(summary, appUsageList);
+    const fileName = `活动报告_${summary.date}.html`;
+    const filePath = path.join(reportsDir, fileName);
+    fs.writeFileSync(filePath, html, 'utf-8');
+
+    return filePath;
+  }
+
+  private generateHTMLReportContent(summary: DailySummary, appUsageList: Array<{ appName: string; duration: number; count: number }>): string {
     const html = `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -270,12 +304,67 @@ export class Reporter {
 </body>
 </html>
     `.trim();
+    
+    return html;
+  }
 
-    const fileName = `活动报告_${summary.date}.html`;
-    const filePath = path.join(reportsDir, fileName);
-    fs.writeFileSync(filePath, html, 'utf-8');
+  // 获取历史报告列表
+  getReportList(): Array<{ date: string; htmlPath: string; excelPath: string; exists: boolean }> {
+    try {
+      const reportsDir = path.join(app.getPath('userData'), 'reports');
+      if (!fs.existsSync(reportsDir)) {
+        return [];
+      }
 
-    return filePath;
+      const files = fs.readdirSync(reportsDir);
+      const reportMap = new Map<string, { htmlPath?: string; excelPath?: string }>();
+
+      files.forEach(file => {
+        const match = file.match(/活动报告_(\d{4}-\d{2}-\d{2})\.(html|xlsx)/);
+        if (match) {
+          const date = match[1];
+          const ext = match[2];
+          const filePath = path.join(reportsDir, file);
+          
+          if (!reportMap.has(date)) {
+            reportMap.set(date, {});
+          }
+          
+          const report = reportMap.get(date)!;
+          if (ext === 'html') {
+            report.htmlPath = filePath;
+          } else if (ext === 'xlsx') {
+            report.excelPath = filePath;
+          }
+        }
+      });
+
+      return Array.from(reportMap.entries())
+        .map(([date, paths]) => ({
+          date,
+          htmlPath: paths.htmlPath || '',
+          excelPath: paths.excelPath || '',
+          exists: fs.existsSync(paths.htmlPath || '') || fs.existsSync(paths.excelPath || ''),
+        }))
+        .filter(report => report.exists)
+        .sort((a, b) => b.date.localeCompare(a.date)); // 最新的在前
+    } catch (error) {
+      console.error('Error getting report list:', error);
+      return [];
+    }
+  }
+
+  // 读取HTML报告内容
+  readHTMLReport(htmlPath: string): string | null {
+    try {
+      if (fs.existsSync(htmlPath)) {
+        return fs.readFileSync(htmlPath, 'utf-8');
+      }
+      return null;
+    } catch (error) {
+      console.error('Error reading HTML report:', error);
+      return null;
+    }
   }
 
   private formatDuration(seconds: number): string {

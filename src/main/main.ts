@@ -41,6 +41,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    autoHideMenuBar: true, // 隐藏默认菜单栏
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -288,6 +289,21 @@ ipcMain.handle('get-activity-timeline', async (event, date: string) => {
 ipcMain.handle('generate-report', async (event, date: string) => {
   if (!reporter) return { success: false, path: '' };
   return await reporter.generateDailyReport(date);
+});
+
+ipcMain.handle('get-report-list', async () => {
+  if (!reporter) return [];
+  return reporter.getReportList();
+});
+
+ipcMain.handle('read-html-report', async (event, htmlPath: string) => {
+  if (!reporter) return null;
+  return reporter.readHTMLReport(htmlPath);
+});
+
+ipcMain.handle('open-report-file', async (event, filePath: string) => {
+  const { shell } = require('electron');
+  await shell.openPath(filePath);
 });
 
 // 设置相关 IPC

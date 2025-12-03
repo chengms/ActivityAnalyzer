@@ -162,6 +162,17 @@ body {
   box-shadow: 0 4px 8px rgba(248, 113, 113, 0.3);
 }
 
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
 .app-main {
   flex: 1;
   padding: 30px;
