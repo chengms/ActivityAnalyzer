@@ -189,8 +189,12 @@ export class ActivityTracker {
       this.lastCheckTime = checkTime;
     } catch (error) {
       console.error('[Activity] Error checking activity:', error);
-      // 确保在错误时也释放锁
-      this.isSaving = false;
+      // 确保在错误时也释放锁（如果锁被设置的话）
+      // 注意：如果异常发生在应用切换的 try-finally 块中，锁已经在 finally 中被释放
+      // 如果异常发生在应用切换之前，锁从未被设置，这里设置为 false 是冗余的，但不会造成问题
+      if (this.isSaving) {
+        this.isSaving = false;
+      }
       // 即使发生异常，也要更新 lastCheckTime，避免时间戳过时
       // 这样后续的检查才能使用正确的时间进行计算
       this.lastCheckTime = checkTime;

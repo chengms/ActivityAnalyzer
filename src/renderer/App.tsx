@@ -178,15 +178,16 @@ function App() {
       console.log('Report generation result:', result);
       
       if (result.success) {
+        // 格式化日期时间显示（在两个代码路径中都使用）
+        const formatDateTime = (dt: string) => {
+          const [date, time] = dt.split('T');
+          return `${date} ${time}`;
+        };
+        
         if (result.htmlContent) {
           // 显示报告查看器
           console.log('Showing report viewer with content length:', result.htmlContent.length);
           setReportContent(result.htmlContent);
-          // 格式化日期时间显示
-          const formatDateTime = (dt: string) => {
-            const [date, time] = dt.split('T');
-            return `${date} ${time}`;
-          };
           setReportDate(startDate === endDate 
             ? formatDateTime(startDateTime) 
             : `${formatDateTime(startDateTime)} 至 ${formatDateTime(endDateTime)}`);
@@ -201,7 +202,10 @@ function App() {
             const content = await window.electronAPI.readHTMLReport(result.htmlPath);
             if (content) {
               setReportContent(content);
-              setReportDate(startDate === endDate ? startDate : `${startDate} 至 ${endDate}`);
+              // 使用相同的格式化函数，确保两种代码路径显示一致
+              setReportDate(startDate === endDate 
+                ? formatDateTime(startDateTime) 
+                : `${formatDateTime(startDateTime)} 至 ${formatDateTime(endDateTime)}`);
               setReportPaths({
                 htmlPath: result.htmlPath,
                 excelPath: result.excelPath,
