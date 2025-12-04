@@ -10,6 +10,16 @@ export default defineConfig({
     outDir: '../../dist/renderer',
     emptyOutDir: true,
     assetsDir: 'assets',
+    minify: 'esbuild', // 使用 esbuild（更快，内置，无需额外依赖）
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'chart-vendor': ['chart.js', 'react-chartjs-2'],
+          'date-vendor': ['date-fns'],
+        },
+      },
+    },
   },
   resolve: {
     alias: {

@@ -1,5 +1,9 @@
 import { Database, ActivityRecord } from './database';
 import activeWin from 'active-win';
+import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
+import { execSync } from 'child_process';
 
 interface ProcessInfo {
   appName: string;
@@ -22,6 +26,10 @@ export class ActivityTracker {
   private checkInterval: number = 5000; // 默认5秒检查一次
   private lastSaveTime: Date | null = null; // 上次保存时间
   private saveInterval: number = 60000; // 每60秒保存一次当前活动（即使没有切换）
+  // 缓存进程详细信息，减少重复的 PowerShell 调用
+  private processInfoCache: Map<string, { info: { path?: string; name?: string; pid?: number; architecture?: string; commandLine?: string } | null; timestamp: number }> = new Map();
+  private readonly PROCESS_INFO_CACHE_TTL = 30000; // 缓存30秒
+  private readonly DETAILED_INFO_ENABLED = true; // 是否启用详细进程信息获取（可配置）
 
   constructor(database: Database, checkInterval?: number) {
     this.database = database;
@@ -58,6 +66,10 @@ export class ActivityTracker {
         console.log(`[AutoSave] Saving current activity: ${this.currentApp} - ${this.currentWindow}`);
         this.saveAndUpdateCurrentActivity();
       }
+      // 定期清理过期缓存，避免内存泄漏（每5分钟清理一次）
+      if (this.processInfoCache.size > 0) {
+        this.cleanupCache();
+      }
     }, this.saveInterval);
   }
 
@@ -70,6 +82,16 @@ export class ActivityTracker {
     // 如果正在运行，重新启动以应用新间隔
     if (this.intervalId) {
       this.start();
+    }
+  }
+
+  // 清理过期缓存，避免内存泄漏
+  private cleanupCache() {
+    const now = Date.now();
+    for (const [key, value] of this.processInfoCache.entries()) {
+      if (now - value.timestamp > this.PROCESS_INFO_CACHE_TTL) {
+        this.processInfoCache.delete(key);
+      }
     }
   }
 
@@ -222,7 +244,6 @@ export class ActivityTracker {
     let appName: string;
     if (processInfo?.path) {
       // 从进程路径提取应用名称
-      const path = require('path');
       const processName = path.basename(processInfo.path, path.extname(processInfo.path));
       
       // 尝试从进程名和窗口标题推断应用名称
@@ -277,18 +298,18 @@ export class ActivityTracker {
         // 尝试后备方案
         const fallback = await this.getActiveWindowFallback();
         if (fallback?.owner) {
-          return this.extractProcessInfo(fallback.owner);
+          return this.extractProcessInfo(fallback.owner, false);
         }
         return null;
       }
 
-      return this.extractProcessInfo(result.owner);
+      return this.extractProcessInfo(result.owner, this.DETAILED_INFO_ENABLED);
     } catch (error) {
       console.error('[ProcessInfo] Error getting process details:', error);
       try {
         const fallback = await this.getActiveWindowFallback();
         if (fallback?.owner) {
-          return this.extractProcessInfo(fallback.owner);
+          return this.extractProcessInfo(fallback.owner, false);
         }
       } catch (fallbackError) {
         console.error('[ProcessInfo] Fallback also failed:', fallbackError);
@@ -298,16 +319,13 @@ export class ActivityTracker {
   }
 
   // 从 owner 对象提取进程信息
-  private extractProcessInfo(owner: { path?: string; name?: string }): {
+  private extractProcessInfo(owner: { path?: string; name?: string }, getDetailedInfo: boolean = true): {
     path?: string;
     name?: string;
     pid?: number;
     architecture?: string;
     commandLine?: string;
   } {
-    const path = require('path');
-    const fs = require('fs');
-    
     let processPath = owner.path || '';
     let processName = owner.name || '';
     let architecture: string | undefined;
@@ -318,10 +336,21 @@ export class ActivityTracker {
     if (processPath) {
       processName = path.basename(processPath, path.extname(processPath));
       
-      // 使用 PowerShell 获取进程详细信息（PID、架构、命令行）
-      try {
-        const { execSync } = require('child_process');
-        const psScript = `
+      // 使用缓存避免重复的 PowerShell 调用
+      if (getDetailedInfo) {
+        const cacheKey = processPath;
+        const cached = this.processInfoCache.get(cacheKey);
+        const now = Date.now();
+        
+        if (cached && (now - cached.timestamp) < this.PROCESS_INFO_CACHE_TTL) {
+          // 使用缓存的结果
+          pid = cached.info?.pid;
+          architecture = cached.info?.architecture;
+          commandLine = cached.info?.commandLine;
+        } else {
+          // 使用 PowerShell 获取进程详细信息（PID、架构、命令行）
+          try {
+            const psScript = `
 $procPath = "${processPath.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"
 $proc = Get-Process | Where-Object {$_.Path -eq $procPath} | Select-Object -First 1
 if ($proc) {
@@ -351,29 +380,41 @@ if ($proc) {
   Write-Output "$pid|$procArch|$cmdLine"
 }
 `;
-        try {
-          const result = execSync(
-            `powershell -ExecutionPolicy Bypass -NoProfile -Command "${psScript}"`,
-            { encoding: 'utf-8', timeout: 3000, stdio: ['pipe', 'pipe', 'ignore'] }
-          );
-          const output = result.toString().trim();
-          if (output) {
-            const parts = output.split('|');
-            if (parts.length >= 1 && parts[0]) {
-              pid = parseInt(parts[0], 10);
+            const result = execSync(
+              `powershell -ExecutionPolicy Bypass -NoProfile -Command "${psScript}"`,
+              { encoding: 'utf-8', timeout: 2000, stdio: ['pipe', 'pipe', 'ignore'] as const }
+            );
+            const output = result.toString().trim();
+            if (output) {
+              const parts = output.split('|');
+              if (parts.length >= 1 && parts[0]) {
+                pid = parseInt(parts[0], 10);
+              }
+              if (parts.length >= 2 && parts[1]) {
+                architecture = parts[1];
+              }
+              if (parts.length >= 3 && parts[2]) {
+                commandLine = parts[2];
+              }
+              
+              // 缓存结果
+              this.processInfoCache.set(cacheKey, {
+                info: { pid, architecture, commandLine },
+                timestamp: now
+              });
+              
+              // 限制缓存大小，避免内存泄漏
+              if (this.processInfoCache.size > 100) {
+                const firstKey = this.processInfoCache.keys().next().value;
+                if (firstKey) {
+                  this.processInfoCache.delete(firstKey);
+                }
+              }
             }
-            if (parts.length >= 2 && parts[1]) {
-              architecture = parts[1];
-            }
-            if (parts.length >= 3 && parts[2]) {
-              commandLine = parts[2];
-            }
+          } catch (error) {
+            // 忽略错误，使用默认值
           }
-        } catch (error) {
-          // 忽略错误，使用默认值
         }
-      } catch (error) {
-        // 忽略架构检测错误
       }
     }
 
@@ -418,7 +459,6 @@ if ($proc) {
         
         // 如果有进程路径，从路径提取（更准确）
         if (result.owner.path) {
-          const path = require('path');
           const extractedName = path.basename(result.owner.path, path.extname(result.owner.path));
           // 只有当提取的名称不为空时才使用，否则保留之前的 appName
           if (extractedName && extractedName.trim() !== '') {
@@ -450,8 +490,7 @@ if ($proc) {
         // 尝试后备方案
         try {
           const fallbackResult = await this.getActiveWindowFallback();
-          if (fallbackResult?.owner?.path) {
-            const path = require('path');
+            if (fallbackResult?.owner?.path) {
             const extractedName = path.basename(fallbackResult.owner.path, path.extname(fallbackResult.owner.path));
             // 只有当提取的名称不为空时才使用，否则使用 owner.name 或 'Unknown'
             if (extractedName && extractedName.trim() !== '') {
@@ -477,10 +516,6 @@ if ($proc) {
   // 后备方案：使用 PowerShell 直接调用 Windows API 获取进程信息
   private async getActiveWindowFallback(): Promise<any> {
     try {
-      const { execSync } = require('child_process');
-      const fs = require('fs');
-      const path = require('path');
-      const os = require('os');
       
       const tempFile = path.join(os.tmpdir(), `get-process-${Date.now()}.ps1`);
       const psScript = `
@@ -545,12 +580,11 @@ try {
           {
             encoding: 'utf-8',
             timeout: 3000,
-            stdio: ['pipe', 'pipe', 'ignore'],
-            shell: true,
+            stdio: ['pipe', 'pipe', 'ignore'] as const,
           }
-        );
+        ) as string;
         
-        const output = result.toString('utf-8').trim();
+        const output = result.trim();
         if (output && /^[A-Za-z0-9+/=]+$/.test(output)) {
           const decoded = Buffer.from(output, 'base64').toString('utf-8');
           const [processName, processPath, title] = decoded.split('|');
