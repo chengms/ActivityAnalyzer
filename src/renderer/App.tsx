@@ -165,9 +165,14 @@ function App() {
       const startDate = startDateTime.split('T')[0];
       const endDate = endDateTime.split('T')[0];
       
-      // 如果是单日报告（日期相同），传递日期参数
-      // 否则传递完整的时间段参数（包含时分秒）
-      const result = startDate === endDate
+      // 检查是否是完整的一天（00:00:00 到 23:59:59）
+      const isFullDay = startDate === endDate && 
+                        startDateTime.endsWith('T00:00:00') && 
+                        endDateTime.endsWith('T23:59:59');
+      
+      // 如果是完整的一天，传递日期参数（单日报告）
+      // 否则传递完整的时间段参数（包含时分秒），即使日期相同
+      const result = isFullDay
         ? await window.electronAPI.generateReport(startDate)
         : await window.electronAPI.generateReport(selectedDate, startDateTime, endDateTime);
       console.log('Report generation result:', result);

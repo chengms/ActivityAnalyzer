@@ -10,22 +10,24 @@ interface ReportDateRangeDialogProps {
 
 export function ReportDateRangeDialog({ defaultDate, onConfirm, onCancel }: ReportDateRangeDialogProps) {
   const [startDate, setStartDate] = useState<string>(defaultDate);
-  const [startTime, setStartTime] = useState<string>('00:00:00');
+  const [startTime, setStartTime] = useState<string>('00:00'); // HTML time input 返回 HH:MM 格式
   const [endDate, setEndDate] = useState<string>(defaultDate);
-  const [endTime, setEndTime] = useState<string>('23:59:59');
+  const [endTime, setEndTime] = useState<string>('23:59'); // HTML time input 返回 HH:MM 格式
   const [useDateRange, setUseDateRange] = useState<boolean>(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (useDateRange) {
       // 验证日期时间
-      const startDateTime = `${startDate}T${startTime}`;
-      const endDateTime = `${endDate}T${endTime}`;
+      // HTML time input 返回 HH:MM 格式，需要补充秒数部分以形成完整的 ISO 8601 格式
+      const startDateTime = `${startDate}T${startTime}:00`;
+      const endDateTime = `${endDate}T${endTime}:59`;
       
       if (startDate > endDate || (startDate === endDate && startTime > endTime)) {
         alert('开始时间不能晚于结束时间');
         return;
       }
+      // 始终传递完整的日期时间字符串，即使日期相同
       onConfirm(startDateTime, endDateTime);
     } else {
       // 使用单日（默认一整天：00:00:00 到 23:59:59）
