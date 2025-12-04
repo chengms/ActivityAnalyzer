@@ -134,13 +134,16 @@ export class ActivityTracker {
     }
     
     // 保存当前活动记录
+    // 注意：由于 JavaScript 是单线程的，如果 checkActivity 正在执行，
+    // stop() 不会被调用，直到 checkActivity 完成。所以这里不需要等待。
+    // saveCurrentActivity 不检查 isSaving 锁，所以可以安全调用。
     this.saveCurrentActivity();
   }
 
   private async checkActivity() {
+    const checkTime = new Date(); // 当前检查时间（在 try 块外定义，确保异常时也能使用）
+    
     try {
-      const checkTime = new Date(); // 当前检查时间
-      
       // 先获取窗口标题
       const activeWindow = await this.getActiveWindowTitle();
       
@@ -182,12 +185,15 @@ export class ActivityTracker {
       // 注意：即使窗口未切换，也要更新 lastCheckTime
       // 这样下次切换时才能准确计算时间
       
-      // 更新上次检查时间
+      // 更新上次检查时间（在 try 块的最后，但如果发生异常，需要在 catch 块中也更新）
       this.lastCheckTime = checkTime;
     } catch (error) {
       console.error('[Activity] Error checking activity:', error);
       // 确保在错误时也释放锁
       this.isSaving = false;
+      // 即使发生异常，也要更新 lastCheckTime，避免时间戳过时
+      // 这样后续的检查才能使用正确的时间进行计算
+      this.lastCheckTime = checkTime;
     }
   }
 

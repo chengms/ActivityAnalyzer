@@ -230,8 +230,9 @@ export class Database {
         
         const [datePart, timePart] = dateTime.split('T');
         if (!timePart) {
-          const timePart = isEndTime ? '23:59:59' : '00:00:00';
-          return `${datePart}T${timePart}.${isEndTime ? '999' : '000'}Z`;
+          // 如果没有时间部分，使用默认值
+          const defaultTimePart = isEndTime ? '23:59:59' : '00:00:00';
+          return `${datePart}T${defaultTimePart}.${isEndTime ? '999' : '000'}Z`;
         }
         
         let timeWithoutZ = timePart.endsWith('Z') ? timePart.slice(0, -1) : timePart;
@@ -361,8 +362,8 @@ export class Database {
       const [datePart, timePart] = dateTime.split('T');
       if (!timePart) {
         // 如果没有时间部分，使用默认值
-        const timePart = isEndTime ? '23:59:59' : '00:00:00';
-        return `${datePart}T${timePart}.${isEndTime ? '999' : '000'}Z`;
+        const defaultTimePart = isEndTime ? '23:59:59' : '00:00:00';
+        return `${datePart}T${defaultTimePart}.${isEndTime ? '999' : '000'}Z`;
       }
       
       // 移除 Z 后缀（如果存在）和毫秒部分（如果存在）
