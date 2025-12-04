@@ -312,14 +312,20 @@ ipcMain.handle('delete-unknown-activities', async (event, date?: string) => {
   return database.deleteUnknownActivities(date);
 });
 
-ipcMain.handle('generate-report', async (event, date: string, startDate?: string, endDate?: string) => {
+ipcMain.handle('generate-report', async (event, date: string, startDateTime?: string, endDateTime?: string) => {
   if (!reporter) return { success: false, path: '' };
-  // 如果提供了开始日期和结束日期，且它们不同，生成时间段报告
-  if (startDate && endDate && startDate !== endDate) {
-    return await reporter.generateDateRangeReport(startDate, endDate);
+  // 如果提供了开始日期时间和结束日期时间，且它们不同，生成时间段报告
+  // 支持日期字符串（YYYY-MM-DD）或完整的日期时间字符串（ISO 8601）
+  if (startDateTime && endDateTime) {
+    // 提取日期部分进行比较
+    const startDate = startDateTime.split('T')[0];
+    const endDate = endDateTime.split('T')[0];
+    if (startDate !== endDate || startDateTime !== endDateTime) {
+      return await reporter.generateDateRangeReport(startDateTime, endDateTime);
+    }
   }
-  // 否则生成单日报告（使用传入的 date 或 startDate）
-  const reportDate = startDate || date;
+  // 否则生成单日报告（使用传入的 date 或 startDateTime 的日期部分）
+  const reportDate = startDateTime ? startDateTime.split('T')[0] : date;
   return await reporter.generateDailyReport(reportDate);
 });
 

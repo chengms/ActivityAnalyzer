@@ -4,26 +4,34 @@ import './ReportDateRangeDialog.css';
 
 interface ReportDateRangeDialogProps {
   defaultDate: string;
-  onConfirm: (startDate: string, endDate: string) => void;
+  onConfirm: (startDateTime: string, endDateTime: string) => void;
   onCancel: () => void;
 }
 
 export function ReportDateRangeDialog({ defaultDate, onConfirm, onCancel }: ReportDateRangeDialogProps) {
   const [startDate, setStartDate] = useState<string>(defaultDate);
+  const [startTime, setStartTime] = useState<string>('00:00:00');
   const [endDate, setEndDate] = useState<string>(defaultDate);
+  const [endTime, setEndTime] = useState<string>('23:59:59');
   const [useDateRange, setUseDateRange] = useState<boolean>(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (useDateRange) {
-      if (startDate > endDate) {
-        alert('开始日期不能晚于结束日期');
+      // 验证日期时间
+      const startDateTime = `${startDate}T${startTime}`;
+      const endDateTime = `${endDate}T${endTime}`;
+      
+      if (startDate > endDate || (startDate === endDate && startTime > endTime)) {
+        alert('开始时间不能晚于结束时间');
         return;
       }
-      onConfirm(startDate, endDate);
+      onConfirm(startDateTime, endDateTime);
     } else {
-      // 使用单日（默认一整天）
-      onConfirm(defaultDate, defaultDate);
+      // 使用单日（默认一整天：00:00:00 到 23:59:59）
+      const startDateTime = `${defaultDate}T00:00:00`;
+      const endDateTime = `${defaultDate}T23:59:59`;
+      onConfirm(startDateTime, endDateTime);
     }
   };
 
@@ -60,23 +68,43 @@ export function ReportDateRangeDialog({ defaultDate, onConfirm, onCancel }: Repo
 
           {useDateRange && (
             <div className="report-dialog-date-range">
-              <div className="date-range-item">
-                <label>开始日期：</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  required
-                />
+              <div className="date-time-group">
+                <div className="date-time-label">开始时间：</div>
+                <div className="date-time-inputs">
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    required
+                    className="date-input"
+                  />
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    step="1"
+                    className="time-input"
+                  />
+                </div>
               </div>
-              <div className="date-range-item">
-                <label>结束日期：</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  required
-                />
+              <div className="date-time-group">
+                <div className="date-time-label">结束时间：</div>
+                <div className="date-time-inputs">
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    required
+                    className="date-input"
+                  />
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    step="1"
+                    className="time-input"
+                  />
+                </div>
               </div>
             </div>
           )}

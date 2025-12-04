@@ -97,24 +97,28 @@
   border: 1px solid #e0e0e0;
 }
 
-.date-range-item {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12px;
+.date-time-group {
+  margin-bottom: 16px;
 }
 
-.date-range-item:last-child {
+.date-time-group:last-child {
   margin-bottom: 0;
 }
 
-.date-range-item label {
-  min-width: 80px;
+.date-time-label {
   font-size: 14px;
   color: #666;
-  margin-right: 12px;
+  margin-bottom: 8px;
+  font-weight: 500;
 }
 
-.date-range-item input[type="date"] {
+.date-time-inputs {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.date-input {
   flex: 1;
   padding: 8px 12px;
   border: 1px solid #ddd;
@@ -124,7 +128,22 @@
   transition: border-color 0.2s;
 }
 
-.date-range-item input[type="date"]:focus {
+.date-input:focus {
+  border-color: #667eea;
+}
+
+.time-input {
+  flex: 0 0 120px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: monospace;
+}
+
+.time-input:focus {
   border-color: #667eea;
 }
 

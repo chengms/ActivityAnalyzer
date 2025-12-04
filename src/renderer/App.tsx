@@ -157,15 +157,19 @@ function App() {
     setShowReportDialog(true);
   };
 
-  const handleConfirmReport = async (startDate: string, endDate: string) => {
+  const handleConfirmReport = async (startDateTime: string, endDateTime: string) => {
     setShowReportDialog(false);
     setReportGenerating(true);
     try {
-      // 如果是单日报告（startDate === endDate），只传递日期参数
-      // 否则传递时间段参数
+      // 提取日期部分用于显示
+      const startDate = startDateTime.split('T')[0];
+      const endDate = endDateTime.split('T')[0];
+      
+      // 如果是单日报告（日期相同），传递日期参数
+      // 否则传递完整的时间段参数（包含时分秒）
       const result = startDate === endDate
         ? await window.electronAPI.generateReport(startDate)
-        : await window.electronAPI.generateReport(selectedDate, startDate, endDate);
+        : await window.electronAPI.generateReport(selectedDate, startDateTime, endDateTime);
       console.log('Report generation result:', result);
       
       if (result.success) {
@@ -173,7 +177,14 @@ function App() {
           // 显示报告查看器
           console.log('Showing report viewer with content length:', result.htmlContent.length);
           setReportContent(result.htmlContent);
-          setReportDate(startDate === endDate ? startDate : `${startDate} 至 ${endDate}`);
+          // 格式化日期时间显示
+          const formatDateTime = (dt: string) => {
+            const [date, time] = dt.split('T');
+            return `${date} ${time}`;
+          };
+          setReportDate(startDate === endDate 
+            ? formatDateTime(startDateTime) 
+            : `${formatDateTime(startDateTime)} 至 ${formatDateTime(endDateTime)}`);
           setReportPaths({
             htmlPath: result.htmlPath,
             excelPath: result.excelPath,

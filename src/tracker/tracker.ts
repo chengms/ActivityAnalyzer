@@ -292,25 +292,28 @@ export class ActivityTracker {
     if (process.platform !== 'win32') return null;
 
     try {
-      // 使用 active-win 获取进程信息
+      // 使用 active-win 获取进程信息（包含当前活动窗口的 PID）
       const result = await activeWin();
       
       if (!result || !result.owner) {
         // 尝试后备方案
         const fallback = await this.getActiveWindowFallback();
         if (fallback?.owner) {
-          return this.extractProcessInfo(fallback.owner, false);
+          // 后备方案可能不包含 PID，传递 undefined
+          return this.extractProcessInfo(fallback.owner, false, undefined);
         }
         return null;
       }
 
-      return this.extractProcessInfo(result.owner, this.DETAILED_INFO_ENABLED);
+      // 使用 active-win 提供的 processId（这是当前活动窗口的准确 PID）
+      const processId = (result.owner as any).processId || (result as any).processId;
+      return this.extractProcessInfo(result.owner, this.DETAILED_INFO_ENABLED, processId);
     } catch (error) {
       console.error('[ProcessInfo] Error getting process details:', error);
       try {
         const fallback = await this.getActiveWindowFallback();
         if (fallback?.owner) {
-          return this.extractProcessInfo(fallback.owner, false);
+          return this.extractProcessInfo(fallback.owner, false, undefined);
         }
       } catch (fallbackError) {
         console.error('[ProcessInfo] Fallback also failed:', fallbackError);
@@ -320,7 +323,8 @@ export class ActivityTracker {
   }
 
   // 从 owner 对象提取进程信息
-  private extractProcessInfo(owner: { path?: string; name?: string }, getDetailedInfo: boolean = true): {
+  // processId: 从 active-win 获取的当前活动窗口的 PID（如果可用）
+  private extractProcessInfo(owner: { path?: string; name?: string }, getDetailedInfo: boolean = true, processId?: number): {
     path?: string;
     name?: string;
     pid?: number;
@@ -331,7 +335,7 @@ export class ActivityTracker {
     let processName = owner.name || '';
     let architecture: string | undefined;
     let commandLine: string | undefined;
-    let pid: number | undefined;
+    let pid: number | undefined = processId; // 优先使用传入的 PID（来自 active-win）
 
     // 从路径提取进程名称
     if (processPath) {
@@ -347,37 +351,22 @@ export class ActivityTracker {
           // 使用缓存的结果（只缓存架构和命令行，不缓存 PID）
           architecture = cached.info?.architecture;
           commandLine = cached.info?.commandLine;
-          // PID 需要实时获取，因为每个进程实例都有不同的 PID
-          // 只获取当前进程的 PID（轻量级操作）
-          try {
-            const pidScript = `
-$procPath = "${processPath.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"
-$proc = Get-Process | Where-Object {$_.Path -eq $procPath} | Select-Object -First 1
-if ($proc) { Write-Output $proc.Id }
-`;
-            const pidResult = execSync(
-              `powershell -ExecutionPolicy Bypass -NoProfile -Command "${pidScript}"`,
-              { encoding: 'utf-8', timeout: 1000, stdio: ['pipe', 'pipe', 'ignore'] as const }
-            );
-            const pidOutput = pidResult.toString().trim();
-            if (pidOutput) {
-              const parsedPid = parseInt(pidOutput, 10);
-              // 验证解析结果是有效数字，避免 NaN
-              if (!isNaN(parsedPid) && isFinite(parsedPid) && parsedPid > 0) {
-                pid = parsedPid;
-              }
-            }
-          } catch (error) {
-            // 忽略 PID 获取错误
-          }
+          // PID 使用传入的 processId（来自 active-win，是当前活动窗口的准确 PID）
+          // 如果 processId 未提供，保持 undefined（不进行额外的 PowerShell 查询，避免返回错误的进程实例）
+          // 这样可以确保对于多实例应用（如多个 Chrome 窗口），我们使用的是正确的进程实例
         } else {
           // 使用 PowerShell 获取进程详细信息（PID、架构、命令行）
           try {
-            const psScript = `
-$procPath = "${processPath.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"
-$proc = Get-Process | Where-Object {$_.Path -eq $procPath} | Select-Object -First 1
+            // 如果已传入 processId（来自 active-win），直接使用；否则获取当前活动窗口的 PID
+            let targetPid = pid;
+            let psScript: string;
+            
+            if (targetPid) {
+              // 使用传入的 PID（来自 active-win，是当前活动窗口的准确 PID）
+              psScript = `
+$pid = ${targetPid}
+$proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
 if ($proc) {
-  $pid = $proc.Id
   $cmdLine = (Get-WmiObject Win32_Process -Filter "ProcessId = $pid").CommandLine
   $is64bitOS = [Environment]::Is64BitOperatingSystem
   $procArch = "64位"
@@ -403,6 +392,56 @@ if ($proc) {
   Write-Output "$pid|$procArch|$cmdLine"
 }
 `;
+            } else {
+              // 如果没有传入 PID，获取当前活动窗口的 PID（而不是通过路径查找第一个匹配的进程）
+              psScript = `
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+  [DllImport("user32.dll")]
+  public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")]
+  public static extern int GetWindowThreadProcessId(IntPtr hWnd, out int ProcessId);
+  public static int GetActiveWindowPid() {
+    IntPtr hwnd = GetForegroundWindow();
+    if (hwnd == IntPtr.Zero) return 0;
+    int pid;
+    GetWindowThreadProcessId(hwnd, out pid);
+    return pid;
+  }
+}
+"@
+$pid = [Win32]::GetActiveWindowPid()
+$proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+if ($proc) {
+  $cmdLine = (Get-WmiObject Win32_Process -Filter "ProcessId = $pid").CommandLine
+  $is64bitOS = [Environment]::Is64BitOperatingSystem
+  $procArch = "64位"
+  try {
+    $procModule = $proc.MainModule
+    if ($procModule) {
+      $filePath = $procModule.FileName
+      if ($filePath -match "SysWOW64|Program Files \\(x86\\)") {
+        $procArch = "32位"
+      } elseif ($is64bitOS) {
+        # 检查是否为 32 位进程
+        $peHeader = [System.IO.File]::ReadAllBytes($filePath)
+        if ($peHeader[0] -eq 0x4D -and $peHeader[1] -eq 0x5A) {
+          $peOffset = [BitConverter]::ToInt32($peHeader, 0x3C)
+          if ($peOffset -lt $peHeader.Length) {
+            $machineType = [BitConverter]::ToUInt16($peHeader, $peOffset + 4)
+            if ($machineType -eq 0x014c) { $procArch = "32位" }
+          }
+        }
+      }
+    }
+  } catch {}
+  Write-Output "$pid|$procArch|$cmdLine"
+}
+`;
+            }
+            
             const result = execSync(
               `powershell -ExecutionPolicy Bypass -NoProfile -Command "${psScript}"`,
               { encoding: 'utf-8', timeout: 2000, stdio: ['pipe', 'pipe', 'ignore'] as const }

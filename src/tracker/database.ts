@@ -299,23 +299,29 @@ export class Database {
   }
 
   // 获取时间段内的活动记录（用于报告生成）
-  getActivityByDateRange(startDate: string, endDate: string): ActivityRecord[] {
+  // startDateTime 和 endDateTime 可以是日期字符串（YYYY-MM-DD）或完整的日期时间字符串（ISO 8601）
+  getActivityByDateRange(startDateTime: string, endDateTime: string): ActivityRecord[] {
     if (!this.db) return [];
+    
+    // 如果传入的是日期字符串（YYYY-MM-DD），转换为日期时间范围
+    // 如果传入的是完整的日期时间字符串，直接使用
+    const startTime = startDateTime.includes('T') ? startDateTime : `${startDateTime}T00:00:00`;
+    const endTime = endDateTime.includes('T') ? endDateTime : `${endDateTime}T23:59:59`;
     
     const stmt = this.db.prepare(`
       SELECT * FROM activities 
-      WHERE date >= ? AND date <= ?
+      WHERE startTime >= ? AND startTime <= ?
       ORDER BY startTime ASC
     `);
     
-    return stmt.all(startDate, endDate) as ActivityRecord[];
+    return stmt.all(startTime, endTime) as ActivityRecord[];
   }
 
   // 获取时间段内的汇总数据（用于报告生成）
-  getSummaryByDateRange(startDate: string, endDate: string): DailySummary | null {
+  getSummaryByDateRange(startDateTime: string, endDateTime: string): DailySummary | null {
     if (!this.db) return null;
     
-    const records = this.getActivityByDateRange(startDate, endDate);
+    const records = this.getActivityByDateRange(startDateTime, endDateTime);
     if (records.length === 0) return null;
 
     // 计算总时长
@@ -325,8 +331,18 @@ export class Database {
     const appSet = new Set(records.map(r => r.appName));
     const appCount = appSet.size;
 
+    // 格式化日期范围显示
+    const formatDateRange = (start: string, end: string) => {
+      const startDate = start.split('T')[0];
+      const endDate = end.split('T')[0];
+      if (startDate === endDate) {
+        return startDate;
+      }
+      return `${startDate} 至 ${endDate}`;
+    };
+
     return {
-      date: startDate === endDate ? startDate : `${startDate} 至 ${endDate}`,
+      date: formatDateRange(startDateTime, endDateTime),
       totalDuration,
       appCount,
       records,

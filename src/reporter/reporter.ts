@@ -46,9 +46,9 @@ export class Reporter {
     }
   }
 
-  async generateDateRangeReport(startDate: string, endDate: string): Promise<{ success: boolean; path: string; htmlContent?: string; htmlPath?: string; excelPath?: string }> {
+  async generateDateRangeReport(startDateTime: string, endDateTime: string): Promise<{ success: boolean; path: string; htmlContent?: string; htmlPath?: string; excelPath?: string }> {
     try {
-      const summary = this.database.getSummaryByDateRange(startDate, endDate);
+      const summary = this.database.getSummaryByDateRange(startDateTime, endDateTime);
       if (!summary) {
         return { success: false, path: '' };
       }
@@ -59,8 +59,24 @@ export class Reporter {
         fs.mkdirSync(reportsDir, { recursive: true });
       }
 
-      // 生成文件名（使用日期范围）
-      const dateRangeStr = startDate === endDate ? startDate : `${startDate}_${endDate}`;
+      // 生成文件名（使用日期范围，移除时间部分中的特殊字符）
+      const startDate = startDateTime.split('T')[0];
+      const endDate = endDateTime.split('T')[0];
+      const startTime = startDateTime.includes('T') ? startDateTime.split('T')[1].replace(/:/g, '-') : '';
+      const endTime = endDateTime.includes('T') ? endDateTime.split('T')[1].replace(/:/g, '-') : '';
+      
+      let dateRangeStr: string;
+      if (startDate === endDate) {
+        // 同一天，包含时间
+        dateRangeStr = startTime && endTime 
+          ? `${startDate}_${startTime}_${endTime}`
+          : startDate;
+      } else {
+        // 不同日期
+        dateRangeStr = startTime && endTime
+          ? `${startDate}_${startTime}_${endDate}_${endTime}`
+          : `${startDate}_${endDate}`;
+      }
 
       // 生成 Excel 报告
       const excelPath = await this.generateExcelReport(summary, reportsDir, dateRangeStr);
