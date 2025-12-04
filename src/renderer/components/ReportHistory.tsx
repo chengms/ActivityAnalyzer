@@ -7,6 +7,7 @@ interface ReportInfo {
   htmlPath: string;
   excelPath: string;
   exists: boolean;
+  fileKey?: string; // 用于 React key，确保唯一性
 }
 
 interface ReportHistoryProps {
@@ -55,6 +56,41 @@ export function ReportHistory({ onSelectReport, onClose }: ReportHistoryProps) {
   };
 
   const formatDate = (dateString: string): string => {
+    // 检查是否包含时间范围信息（时间段报告）
+    if (dateString.includes(' 至 ') || (dateString.includes('-') && dateString.match(/\d{2}:\d{2}:\d{2}/))) {
+      // 时间段报告，直接返回（已经格式化好了）
+      // 格式可能是：YYYY-MM-DD HH:MM:SS-HH:MM:SS 或 YYYY-MM-DD HH:MM:SS 至 YYYY-MM-DD HH:MM:SS
+      // 转换为中文格式显示
+      try {
+        // 尝试解析并格式化
+        if (dateString.includes(' 至 ')) {
+          // 不同日期的时间段
+          const [startPart, endPart] = dateString.split(' 至 ');
+          const [startDate, startTime] = startPart.split(' ');
+          const [endDate, endTime] = endPart.split(' ');
+          if (startDate && startTime && endDate && endTime) {
+            const start = parseISO(`${startDate}T${startTime}`);
+            const end = parseISO(`${endDate}T${endTime}`);
+            return `${format(start, 'yyyy年MM月dd日 HH:mm:ss')} 至 ${format(end, 'yyyy年MM月dd日 HH:mm:ss')}`;
+          }
+        } else if (dateString.includes('-') && dateString.match(/\d{2}:\d{2}:\d{2}/)) {
+          // 同一天的时间段
+          const [datePart, timePart] = dateString.split(' ');
+          if (datePart && timePart) {
+            const [startTime, endTime] = timePart.split('-');
+            if (startTime && endTime) {
+              const date = parseISO(`${datePart}T${startTime}`);
+              return `${format(date, 'yyyy年MM月dd日')} ${startTime}-${endTime}`;
+            }
+          }
+        }
+        return dateString; // 如果解析失败，返回原始字符串
+      } catch {
+        return dateString;
+      }
+    }
+    
+    // 单日报告，只显示日期
     try {
       const date = parseISO(dateString);
       return format(date, 'yyyy年MM月dd日');
@@ -79,7 +115,7 @@ export function ReportHistory({ onSelectReport, onClose }: ReportHistoryProps) {
             <div className="report-history-list">
               {reports.map((report) => (
                 <div
-                  key={report.date}
+                  key={report.fileKey || report.htmlPath || report.date}
                   className="report-history-item"
                   onClick={() => handleSelectReport(report)}
                 >

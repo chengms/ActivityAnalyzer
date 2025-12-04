@@ -184,13 +184,26 @@ function App() {
           return `${date} ${time}`;
         };
         
+        // 格式化报告日期显示
+        // 如果是完整的一天（00:00:00 到 23:59:59），只显示日期
+        // 否则显示完整的时间范围（即使日期相同，只要时间不同）
+        let reportDateStr: string;
+        if (isFullDay) {
+          // 完整的一天，只显示日期
+          reportDateStr = startDate;
+        } else if (startDate === endDate) {
+          // 同一天但时间不同，显示时间范围
+          reportDateStr = `${formatDateTime(startDateTime)} 至 ${formatDateTime(endDateTime)}`;
+        } else {
+          // 不同日期，显示完整的时间范围
+          reportDateStr = `${formatDateTime(startDateTime)} 至 ${formatDateTime(endDateTime)}`;
+        }
+        
         if (result.htmlContent) {
           // 显示报告查看器
           console.log('Showing report viewer with content length:', result.htmlContent.length);
           setReportContent(result.htmlContent);
-          setReportDate(startDate === endDate 
-            ? formatDateTime(startDateTime) 
-            : `${formatDateTime(startDateTime)} 至 ${formatDateTime(endDateTime)}`);
+          setReportDate(reportDateStr);
           setReportPaths({
             htmlPath: result.htmlPath,
             excelPath: result.excelPath,
@@ -202,10 +215,8 @@ function App() {
             const content = await window.electronAPI.readHTMLReport(result.htmlPath);
             if (content) {
               setReportContent(content);
-              // 使用相同的格式化函数，确保两种代码路径显示一致
-              setReportDate(startDate === endDate 
-                ? formatDateTime(startDateTime) 
-                : `${formatDateTime(startDateTime)} 至 ${formatDateTime(endDateTime)}`);
+              // 使用相同的格式化逻辑，确保两种代码路径显示一致
+              setReportDate(reportDateStr);
               setReportPaths({
                 htmlPath: result.htmlPath,
                 excelPath: result.excelPath,

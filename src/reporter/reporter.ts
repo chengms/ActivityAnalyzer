@@ -367,7 +367,7 @@ export class Reporter {
   }
 
   // 获取历史报告列表
-  getReportList(): Array<{ date: string; htmlPath: string; excelPath: string; exists: boolean }> {
+  getReportList(): Array<{ date: string; htmlPath: string; excelPath: string; exists: boolean; fileKey?: string }> {
     try {
       const reportsDir = path.join(app.getPath('userData'), 'reports');
       if (!fs.existsSync(reportsDir)) {
@@ -375,37 +375,99 @@ export class Reporter {
       }
 
       const files = fs.readdirSync(reportsDir);
-      const reportMap = new Map<string, { htmlPath?: string; excelPath?: string }>();
+      const reportMap = new Map<string, { htmlPath?: string; excelPath?: string; displayDate?: string }>();
 
       files.forEach(file => {
-        const match = file.match(/活动报告_(\d{4}-\d{2}-\d{2})\.(html|xlsx)/);
+        // 匹配单日报告：活动报告_YYYY-MM-DD.html
+        let match = file.match(/^活动报告_(\d{4}-\d{2}-\d{2})\.(html|xlsx)$/);
         if (match) {
           const date = match[1];
           const ext = match[2];
           const filePath = path.join(reportsDir, file);
           
-          if (!reportMap.has(date)) {
-            reportMap.set(date, {});
+          // 使用文件名（不含扩展名）作为 key，以便 HTML 和 Excel 文件配对
+          const fileKey = file.replace(/\.(html|xlsx)$/, '');
+          if (!reportMap.has(fileKey)) {
+            reportMap.set(fileKey, { displayDate: date });
           }
           
-          const report = reportMap.get(date)!;
+          const report = reportMap.get(fileKey)!;
           if (ext === 'html') {
             report.htmlPath = filePath;
           } else if (ext === 'xlsx') {
             report.excelPath = filePath;
           }
+        } else {
+          // 匹配时间段报告：
+          // 同一天：活动报告_YYYY-MM-DD_HH-MM-SS_HH-MM-SS.html
+          // 不同日期：活动报告_YYYY-MM-DD_HH-MM-SS_YYYY-MM-DD_HH-MM-SS.html
+          match = file.match(/^活动报告_(\d{4}-\d{2}-\d{2})(?:_\d{2}-\d{2}-\d{2})?(?:_\d{4}-\d{2}-\d{2})?(?:_\d{2}-\d{2}-\d{2})?\.(html|xlsx)$/);
+          if (match) {
+            // 从文件名中提取开始日期（第一个日期部分）
+            const startDate = match[1];
+            const ext = match[2];
+            const filePath = path.join(reportsDir, file);
+            
+            // 使用文件名（不含扩展名）作为 key，以便 HTML 和 Excel 文件配对
+            const fileKey = file.replace(/\.(html|xlsx)$/, '');
+            if (!reportMap.has(fileKey)) {
+              reportMap.set(fileKey, { displayDate: startDate });
+            }
+            
+            const report = reportMap.get(fileKey)!;
+            if (ext === 'html') {
+              report.htmlPath = filePath;
+            } else if (ext === 'xlsx') {
+              report.excelPath = filePath;
+            }
+          }
         }
       });
 
       return Array.from(reportMap.entries())
-        .map(([date, paths]) => ({
-          date,
-          htmlPath: paths.htmlPath || '',
-          excelPath: paths.excelPath || '',
-          exists: fs.existsSync(paths.htmlPath || '') || fs.existsSync(paths.excelPath || ''),
-        }))
+        .map(([fileKey, report]) => {
+          // 从文件名中提取完整信息用于显示
+          let displayDate = report.displayDate || fileKey;
+          
+          // 如果是时间段报告，尝试从文件名提取时间信息
+          // 格式：活动报告_YYYY-MM-DD_HH-MM-SS_HH-MM-SS 或
+          // 活动报告_YYYY-MM-DD_HH-MM-SS_YYYY-MM-DD_HH-MM-SS
+          const timeRangeMatch = fileKey.match(/^活动报告_(\d{4}-\d{2}-\d{2})(?:_(\d{2}-\d{2}-\d{2}))?(?:_(\d{4}-\d{2}-\d{2}))?(?:_(\d{2}-\d{2}-\d{2}))?$/);
+          if (timeRangeMatch && (timeRangeMatch[2] || timeRangeMatch[4])) {
+            // 有时间信息，这是时间段报告
+            const startDate = timeRangeMatch[1];
+            const startTime = timeRangeMatch[2]?.replace(/-/g, ':') || '';
+            const endDate = timeRangeMatch[3] || startDate;
+            const endTime = timeRangeMatch[4]?.replace(/-/g, ':') || '';
+            
+            if (startTime && endTime) {
+              // 格式化显示：如果是同一天，显示 "日期 开始时间-结束时间"
+              // 如果是不同日期，显示 "开始日期 开始时间 至 结束日期 结束时间"
+              if (startDate === endDate) {
+                displayDate = `${startDate} ${startTime}-${endTime}`;
+              } else {
+                displayDate = `${startDate} ${startTime} 至 ${endDate} ${endTime}`;
+              }
+            }
+          }
+          
+          return {
+            date: displayDate,
+            htmlPath: report.htmlPath || '',
+            excelPath: report.excelPath || '',
+            exists: fs.existsSync(report.htmlPath || '') || fs.existsSync(report.excelPath || ''),
+            // 添加 fileKey 用于 React key（确保唯一性）
+            fileKey: fileKey,
+          };
+        })
         .filter(report => report.exists)
-        .sort((a, b) => b.date.localeCompare(a.date)); // 最新的在前
+        .sort((a, b) => {
+          // 先按日期排序，日期相同则按文件名排序（时间段报告会排在单日报告之后）
+          const dateCompare = b.date.localeCompare(a.date);
+          if (dateCompare !== 0) return dateCompare;
+          // 如果日期相同，按文件名排序（确保时间段报告也能正确排序）
+          return b.htmlPath.localeCompare(a.htmlPath);
+        }); // 最新的在前
     } catch (error) {
       console.error('Error getting report list:', error);
       return [];
