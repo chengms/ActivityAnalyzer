@@ -361,7 +361,11 @@ if ($proc) { Write-Output $proc.Id }
             );
             const pidOutput = pidResult.toString().trim();
             if (pidOutput) {
-              pid = parseInt(pidOutput, 10);
+              const parsedPid = parseInt(pidOutput, 10);
+              // 验证解析结果是有效数字，避免 NaN
+              if (!isNaN(parsedPid) && isFinite(parsedPid) && parsedPid > 0) {
+                pid = parsedPid;
+              }
             }
           } catch (error) {
             // 忽略 PID 获取错误
@@ -407,7 +411,11 @@ if ($proc) {
             if (output) {
               const parts = output.split('|');
               if (parts.length >= 1 && parts[0]) {
-                pid = parseInt(parts[0], 10);
+                const parsedPid = parseInt(parts[0], 10);
+                // 验证解析结果是有效数字，避免 NaN
+                if (!isNaN(parsedPid) && isFinite(parsedPid) && parsedPid > 0) {
+                  pid = parsedPid;
+                }
               }
               if (parts.length >= 2 && parts[1]) {
                 architecture = parts[1];
