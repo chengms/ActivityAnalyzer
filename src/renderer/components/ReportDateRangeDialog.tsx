@@ -10,20 +10,41 @@ interface ReportDateRangeDialogProps {
 
 export function ReportDateRangeDialog({ defaultDate, onConfirm, onCancel }: ReportDateRangeDialogProps) {
   const [startDate, setStartDate] = useState<string>(defaultDate);
-  const [startTime, setStartTime] = useState<string>('00:00'); // HTML time input 返回 HH:MM 格式
+  const [startTime, setStartTime] = useState<string>('00:00:00'); // 使用 HH:MM:SS 格式以支持秒选择
   const [endDate, setEndDate] = useState<string>(defaultDate);
-  const [endTime, setEndTime] = useState<string>('23:59'); // HTML time input 返回 HH:MM 格式
+  const [endTime, setEndTime] = useState<string>('23:59:59'); // 使用 HH:MM:SS 格式以支持秒选择
   const [useDateRange, setUseDateRange] = useState<boolean>(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (useDateRange) {
       // 验证日期时间
-      // HTML time input 返回 HH:MM 格式，需要补充秒数部分以形成完整的 ISO 8601 格式
-      const startDateTime = `${startDate}T${startTime}:00`;
-      const endDateTime = `${endDate}T${endTime}:59`;
+      // 确保时间格式为 HH:MM:SS
+      // HTML time input 在 step="1" 时：
+      // - 如果用户选择了秒，返回 HH:MM:SS 格式
+      // - 如果只选择了时分，可能返回 HH:MM 格式
+      const normalizeTime = (time: string, isEndTime: boolean = false): string => {
+        const parts = time.split(':');
+        // 如果已经是 HH:MM:SS 格式，直接返回
+        if (parts.length === 3) {
+          return time;
+        }
+        // 如果是 HH:MM 格式，补充秒数
+        // 对于开始时间，补充 :00；对于结束时间，补充 :59
+        if (parts.length === 2) {
+          return isEndTime ? `${time}:59` : `${time}:00`;
+        }
+        // 其他情况（不应该发生），默认补充 :00
+        return `${time}:00`;
+      };
       
-      if (startDate > endDate || (startDate === endDate && startTime > endTime)) {
+      const normalizedStartTime = normalizeTime(startTime, false);
+      const normalizedEndTime = normalizeTime(endTime, true);
+      
+      const startDateTime = `${startDate}T${normalizedStartTime}`;
+      const endDateTime = `${endDate}T${normalizedEndTime}`;
+      
+      if (startDate > endDate || (startDate === endDate && normalizedStartTime > normalizedEndTime)) {
         alert('开始时间不能晚于结束时间');
         return;
       }
