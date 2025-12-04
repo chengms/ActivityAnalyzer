@@ -303,10 +303,43 @@ export class Database {
   getActivityByDateRange(startDateTime: string, endDateTime: string): ActivityRecord[] {
     if (!this.db) return [];
     
+    // 规范化时间字符串，确保与数据库存储格式一致
+    // 数据库中的 startTime 使用 toISOString() 存储，格式为 "YYYY-MM-DDTHH:mm:ss.sssZ"
+    // 我们需要将查询时间转换为相同的格式，以便正确进行字符串比较
+    const normalizeDateTime = (dateTime: string, isEndTime: boolean = false): string => {
+      // 如果传入的是日期字符串（YYYY-MM-DD），转换为日期时间
+      if (!dateTime.includes('T')) {
+        const timePart = isEndTime ? '23:59:59' : '00:00:00';
+        return `${dateTime}T${timePart}.${isEndTime ? '999' : '000'}Z`;
+      }
+      
+      // 提取日期和时间部分
+      const [datePart, timePart] = dateTime.split('T');
+      if (!timePart) {
+        // 如果没有时间部分，使用默认值
+        const timePart = isEndTime ? '23:59:59' : '00:00:00';
+        return `${datePart}T${timePart}.${isEndTime ? '999' : '000'}Z`;
+      }
+      
+      // 移除 Z 后缀（如果存在）和毫秒部分（如果存在）
+      let timeWithoutZ = timePart.endsWith('Z') ? timePart.slice(0, -1) : timePart;
+      const dotIndex = timeWithoutZ.indexOf('.');
+      const timeSeconds = dotIndex >= 0 ? timeWithoutZ.substring(0, dotIndex) : timeWithoutZ;
+      
+      // 对于结束时间，始终使用 .999 以确保包含该秒内的所有活动（包括毫秒）
+      // 例如：23:59:59.123Z 或 23:59:59 都应该变成 23:59:59.999Z
+      // 这样 23:59:59.500Z 这样的活动也会被包含在查询结果中
+      const milliseconds = isEndTime ? '999' : '000';
+      return `${datePart}T${timeSeconds}.${milliseconds}Z`;
+    };
+    
     // 如果传入的是日期字符串（YYYY-MM-DD），转换为日期时间范围
-    // 如果传入的是完整的日期时间字符串，直接使用
-    const startTime = startDateTime.includes('T') ? startDateTime : `${startDateTime}T00:00:00`;
-    const endTime = endDateTime.includes('T') ? endDateTime : `${endDateTime}T23:59:59`;
+    let startTime = startDateTime.includes('T') ? startDateTime : `${startDateTime}T00:00:00`;
+    let endTime = endDateTime.includes('T') ? endDateTime : `${endDateTime}T23:59:59`;
+    
+    // 规范化时间格式，确保与数据库存储格式一致（包含毫秒和 Z 后缀）
+    startTime = normalizeDateTime(startTime, false);
+    endTime = normalizeDateTime(endTime, true);
     
     const stmt = this.db.prepare(`
       SELECT * FROM activities 
