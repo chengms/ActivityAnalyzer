@@ -216,18 +216,62 @@ export class Database {
   getAppUsage(startDate: string, endDate: string): AppUsage[] {
     if (!this.db) return [];
     
-    const stmt = this.db.prepare(`
-      SELECT 
-        appName,
-        SUM(duration) as totalDuration,
-        COUNT(*) as usageCount
-      FROM activities
-      WHERE date >= ? AND date <= ?
-      GROUP BY appName
-      ORDER BY totalDuration DESC
-    `);
+    // 如果传入的是日期字符串（YYYY-MM-DD），使用 date 字段查询（兼容旧代码）
+    // 如果传入的是完整的日期时间字符串（ISO 8601），使用 startTime 字段查询（精确时间范围）
+    const useTimeRange = startDate.includes('T') || endDate.includes('T');
     
-    return stmt.all(startDate, endDate) as AppUsage[];
+    if (useTimeRange) {
+      // 使用时间范围查询（精确到时分秒）
+      const normalizeDateTime = (dateTime: string, isEndTime: boolean = false): string => {
+        if (!dateTime.includes('T')) {
+          const timePart = isEndTime ? '23:59:59' : '00:00:00';
+          return `${dateTime}T${timePart}.${isEndTime ? '999' : '000'}Z`;
+        }
+        
+        const [datePart, timePart] = dateTime.split('T');
+        if (!timePart) {
+          const timePart = isEndTime ? '23:59:59' : '00:00:00';
+          return `${datePart}T${timePart}.${isEndTime ? '999' : '000'}Z`;
+        }
+        
+        let timeWithoutZ = timePart.endsWith('Z') ? timePart.slice(0, -1) : timePart;
+        const dotIndex = timeWithoutZ.indexOf('.');
+        const timeSeconds = dotIndex >= 0 ? timeWithoutZ.substring(0, dotIndex) : timeWithoutZ;
+        
+        const milliseconds = isEndTime ? '999' : '000';
+        return `${datePart}T${timeSeconds}.${milliseconds}Z`;
+      };
+      
+      const startTime = normalizeDateTime(startDate, false);
+      const endTime = normalizeDateTime(endDate, true);
+      
+      const stmt = this.db.prepare(`
+        SELECT 
+          appName,
+          SUM(duration) as totalDuration,
+          COUNT(*) as usageCount
+        FROM activities
+        WHERE startTime >= ? AND startTime <= ?
+        GROUP BY appName
+        ORDER BY totalDuration DESC
+      `);
+      
+      return stmt.all(startTime, endTime) as AppUsage[];
+    } else {
+      // 使用日期查询（兼容旧代码，查询整天的数据）
+      const stmt = this.db.prepare(`
+        SELECT 
+          appName,
+          SUM(duration) as totalDuration,
+          COUNT(*) as usageCount
+        FROM activities
+        WHERE date >= ? AND date <= ?
+        GROUP BY appName
+        ORDER BY totalDuration DESC
+      `);
+      
+      return stmt.all(startDate, endDate) as AppUsage[];
+    }
   }
 
   getDailySummary(date: string): DailySummary | null {

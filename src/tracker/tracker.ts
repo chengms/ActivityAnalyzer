@@ -26,6 +26,8 @@ export class ActivityTracker {
   private checkInterval: number = 5000; // 默认5秒检查一次
   private lastSaveTime: Date | null = null; // 上次保存时间
   private saveInterval: number = 60000; // 每60秒保存一次当前活动（即使没有切换）
+  private lastCheckTime: Date | null = null; // 上次检查时间，用于准确计算窗口切换时间
+  private isSaving: boolean = false; // 防止并发保存的锁
   // 缓存进程详细信息，减少重复的 PowerShell 调用
   // 注意：只缓存架构和命令行（对于同一可执行文件通常是相同的），不缓存 PID（每个进程实例都不同）
   private processInfoCache: Map<string, { info: { architecture?: string; commandLine?: string } | null; timestamp: number }> = new Map();
@@ -63,11 +65,16 @@ export class ActivityTracker {
     // 定期保存当前活动（即使没有切换应用）
     // 每60秒保存一次当前活动的时长
     this.saveIntervalId = setInterval(() => {
+      // 如果正在保存（应用切换时），跳过本次定期保存，避免竞态条件
+      if (this.isSaving) {
+        console.log(`[AutoSave] Skipping save - activity change in progress`);
+        return;
+      }
       if (this.currentApp && this.currentStartTime) {
         console.log(`[AutoSave] Saving current activity: ${this.currentApp} - ${this.currentWindow}`);
         this.saveAndUpdateCurrentActivity();
       }
-      // 定期清理过期缓存，避免内存泄漏（每5分钟清理一次）
+      // 定期清理过期缓存，避免内存泄漏（每60秒清理一次）
       if (this.processInfoCache.size > 0) {
         this.cleanupCache();
       }
@@ -89,10 +96,21 @@ export class ActivityTracker {
   // 清理过期缓存，避免内存泄漏
   private cleanupCache() {
     const now = Date.now();
+    const keysToDelete: string[] = [];
+    
     for (const [key, value] of this.processInfoCache.entries()) {
       if (now - value.timestamp > this.PROCESS_INFO_CACHE_TTL) {
-        this.processInfoCache.delete(key);
+        keysToDelete.push(key);
       }
+    }
+    
+    // 批量删除，避免在迭代时修改 Map
+    for (const key of keysToDelete) {
+      this.processInfoCache.delete(key);
+    }
+    
+    if (keysToDelete.length > 0) {
+      console.log(`[Cache] Cleaned up ${keysToDelete.length} expired cache entries`);
     }
   }
 
@@ -121,6 +139,8 @@ export class ActivityTracker {
 
   private async checkActivity() {
     try {
+      const checkTime = new Date(); // 当前检查时间
+      
       // 先获取窗口标题
       const activeWindow = await this.getActiveWindowTitle();
       
@@ -129,29 +149,53 @@ export class ActivityTracker {
 
       // 如果应用或窗口发生变化
       if (processInfo.appName !== this.currentApp || activeWindow !== this.currentWindow) {
-        // 保存之前的活动
-        if (this.currentApp) {
-          console.log(`[Activity] App changed: ${this.currentApp} -> ${processInfo.appName}`);
-          this.saveCurrentActivity();
+        // 设置保存锁，防止定期保存同时执行
+        this.isSaving = true;
+        try {
+          // 保存之前的活动
+          if (this.currentApp) {
+            console.log(`[Activity] App changed: ${this.currentApp} -> ${processInfo.appName}`);
+            // 使用上一次检查时间作为旧窗口的结束时间，更准确
+            // 如果这是第一次检查（lastCheckTime 为 null），使用当前时间
+            const endTime = this.lastCheckTime || checkTime;
+            this.saveCurrentActivity(endTime);
+          }
+          
+          // 开始新的活动记录
+          // 使用上一次检查时间作为新窗口的开始时间，更准确
+          // 如果这是第一次检查（lastCheckTime 为 null），使用当前时间
+          this.currentApp = processInfo.appName;
+          this.currentWindow = activeWindow;
+          this.currentProcessInfo = processInfo;
+          // 新窗口的开始时间：使用上一次检查时间（窗口实际切换时间）
+          // 如果是第一次检查，使用当前时间
+          // 但如果 lastCheckTime 为 null 且这是第一次检查，使用 checkTime 作为开始时间
+          this.currentStartTime = this.lastCheckTime || checkTime;
+          this.currentRecordId = null;
+          console.log(`[Activity] Started tracking: ${processInfo.appName} - ${activeWindow} (PID: ${processInfo.processId || 'N/A'})`);
+        } finally {
+          // 释放保存锁
+          this.isSaving = false;
         }
-        
-        // 开始新的活动记录
-        this.currentApp = processInfo.appName;
-        this.currentWindow = activeWindow;
-        this.currentProcessInfo = processInfo;
-        this.currentStartTime = new Date();
-        this.currentRecordId = null;
-        console.log(`[Activity] Started tracking: ${processInfo.appName} - ${activeWindow} (PID: ${processInfo.processId || 'N/A'})`);
       }
+      
+      // 注意：即使窗口未切换，也要更新 lastCheckTime
+      // 这样下次切换时才能准确计算时间
+      
+      // 更新上次检查时间
+      this.lastCheckTime = checkTime;
     } catch (error) {
       console.error('[Activity] Error checking activity:', error);
+      // 确保在错误时也释放锁
+      this.isSaving = false;
     }
   }
 
-  private saveCurrentActivity() {
+  private saveCurrentActivity(endTime?: Date) {
     if (!this.currentStartTime || !this.currentApp) return;
 
-    const now = new Date();
+    // 如果提供了结束时间，使用它；否则使用当前时间
+    const now = endTime || new Date();
     const duration = Math.floor((now.getTime() - this.currentStartTime.getTime()) / 1000);
     
     if (duration < 1) return; // 忽略小于1秒的活动
@@ -194,6 +238,12 @@ export class ActivityTracker {
 
   // 保存并更新当前活动（用于定期保存，不重置开始时间）
   private saveAndUpdateCurrentActivity() {
+    // 如果正在保存（应用切换时），跳过本次定期保存，避免竞态条件
+    if (this.isSaving) {
+      console.log(`[AutoSave] Skipping save - activity change in progress`);
+      return;
+    }
+    
     if (!this.currentStartTime || !this.currentApp) return;
 
     const now = new Date();
@@ -212,6 +262,7 @@ export class ActivityTracker {
         console.log(`Updated activity: ${this.currentApp} - ${this.currentWindow} (${duration}s)`);
       } else {
         // 如果还没有记录ID，创建新记录
+        // 注意：这通常发生在应用刚启动或刚切换应用后，定期保存先于 checkActivity 执行
         const record: ActivityRecord = {
           appName: this.currentApp,
           windowTitle: this.currentWindow,
