@@ -10,6 +10,12 @@ export interface ActivityRecord {
   endTime?: string;
   duration: number; // 秒
   date: string; // YYYY-MM-DD
+  // 进程详细信息
+  processPath?: string; // 进程完整路径
+  processName?: string; // 进程名称（不含扩展名）
+  processId?: number; // 进程ID (PID)
+  architecture?: string; // 进程架构（32位/64位）
+  commandLine?: string; // 命令行参数
 }
 
 export interface AppUsage {
@@ -46,7 +52,7 @@ export class Database {
   init() {
     this.db = new DatabaseLib(this.dbPath);
     
-    // 创建活动记录表
+    // 创建活动记录表（基础字段）
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS activities (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,14 +69,64 @@ export class Database {
       CREATE INDEX IF NOT EXISTS idx_appName ON activities(appName);
       CREATE INDEX IF NOT EXISTS idx_startTime ON activities(startTime);
     `);
+
+    // 数据库迁移：添加进程信息字段（如果表已存在但字段不存在）
+    this.migrateDatabase();
+  }
+
+  // 数据库迁移：添加新字段
+  private migrateDatabase() {
+    if (!this.db) return;
+    
+    try {
+      // 检查表是否存在
+      const tableInfo = this.db.prepare("PRAGMA table_info(activities)").all() as Array<{ name: string }>;
+      const columnNames = tableInfo.map(col => col.name);
+      
+      // 添加缺失的字段
+      if (!columnNames.includes('processPath')) {
+        this.db.exec('ALTER TABLE activities ADD COLUMN processPath TEXT');
+        console.log('[Database] Added processPath column');
+      }
+      if (!columnNames.includes('processName')) {
+        this.db.exec('ALTER TABLE activities ADD COLUMN processName TEXT');
+        console.log('[Database] Added processName column');
+      }
+      if (!columnNames.includes('processId')) {
+        this.db.exec('ALTER TABLE activities ADD COLUMN processId INTEGER');
+        console.log('[Database] Added processId column');
+      }
+      if (!columnNames.includes('architecture')) {
+        this.db.exec('ALTER TABLE activities ADD COLUMN architecture TEXT');
+        console.log('[Database] Added architecture column');
+      }
+      if (!columnNames.includes('commandLine')) {
+        this.db.exec('ALTER TABLE activities ADD COLUMN commandLine TEXT');
+        console.log('[Database] Added commandLine column');
+      }
+
+      // 添加进程ID索引（如果不存在且字段已存在）
+      if (columnNames.includes('processId')) {
+        const indexes = this.db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_processId'").all();
+        if (indexes.length === 0) {
+          this.db.exec('CREATE INDEX IF NOT EXISTS idx_processId ON activities(processId)');
+          console.log('[Database] Added processId index');
+        }
+      }
+    } catch (error) {
+      console.error('[Database] Migration error:', error);
+    }
   }
 
   insertActivity(record: ActivityRecord): number | null {
     if (!this.db) return null;
     
     const stmt = this.db.prepare(`
-      INSERT INTO activities (appName, windowTitle, startTime, endTime, duration, date)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO activities (
+        appName, windowTitle, startTime, endTime, duration, date,
+        processPath, processName, processId, architecture, commandLine
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     const result = stmt.run(
@@ -79,7 +135,12 @@ export class Database {
       record.startTime,
       record.endTime || null,
       record.duration,
-      record.date
+      record.date,
+      record.processPath || null,
+      record.processName || null,
+      record.processId || null,
+      record.architecture || null,
+      record.commandLine || null
     );
     
     return (result.lastInsertRowid as number) || null;
@@ -231,6 +292,41 @@ export class Database {
     `);
     
     return stmt.all(date) as ActivityRecord[];
+  }
+
+  // 获取时间段内的活动记录（用于报告生成）
+  getActivityByDateRange(startDate: string, endDate: string): ActivityRecord[] {
+    if (!this.db) return [];
+    
+    const stmt = this.db.prepare(`
+      SELECT * FROM activities 
+      WHERE date >= ? AND date <= ?
+      ORDER BY startTime ASC
+    `);
+    
+    return stmt.all(startDate, endDate) as ActivityRecord[];
+  }
+
+  // 获取时间段内的汇总数据（用于报告生成）
+  getSummaryByDateRange(startDate: string, endDate: string): DailySummary | null {
+    if (!this.db) return null;
+    
+    const records = this.getActivityByDateRange(startDate, endDate);
+    if (records.length === 0) return null;
+
+    // 计算总时长
+    const totalDuration = records.reduce((sum, record) => sum + record.duration, 0);
+
+    // 计算应用数（去重）
+    const appSet = new Set(records.map(r => r.appName));
+    const appCount = appSet.size;
+
+    return {
+      date: startDate === endDate ? startDate : `${startDate} 至 ${endDate}`,
+      totalDuration,
+      appCount,
+      records,
+    };
   }
 
   // 删除指定应用和窗口的记录（按日期）

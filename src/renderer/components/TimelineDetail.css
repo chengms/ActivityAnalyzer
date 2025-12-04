@@ -169,10 +169,50 @@
   white-space: nowrap;
 }
 
+.detail-process-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.process-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #e0e7ff;
+  color: #4338ca;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.detail-process-path {
+  font-size: 11px;
+  color: #666;
+  margin: 4px 0;
+  font-family: 'Consolas', 'Monaco', monospace;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.detail-command-line {
+  font-size: 11px;
+  color: #666;
+  margin: 4px 0;
+  font-family: 'Consolas', 'Monaco', monospace;
+  word-break: break-all;
+  line-height: 1.4;
+  background: #f8f9fa;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border-left: 2px solid #667eea;
+}
+
 .detail-duration {
   color: #667eea;
   font-weight: 600;
   font-size: 14px;
+  margin-top: 8px;
 }
 
 .timeline-detail-datetime {

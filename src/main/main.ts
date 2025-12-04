@@ -312,8 +312,13 @@ ipcMain.handle('delete-unknown-activities', async (event, date?: string) => {
   return database.deleteUnknownActivities(date);
 });
 
-ipcMain.handle('generate-report', async (event, date: string) => {
+ipcMain.handle('generate-report', async (event, date: string, startDate?: string, endDate?: string) => {
   if (!reporter) return { success: false, path: '' };
+  // 如果提供了开始日期和结束日期，生成时间段报告
+  if (startDate && endDate) {
+    return await reporter.generateDateRangeReport(startDate, endDate);
+  }
+  // 否则生成单日报告
   return await reporter.generateDailyReport(date);
 });
 

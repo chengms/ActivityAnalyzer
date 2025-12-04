@@ -1,12 +1,22 @@
 import { Database, ActivityRecord } from './database';
 import activeWin from 'active-win';
 
+interface ProcessInfo {
+  appName: string;
+  processPath?: string;
+  processName?: string;
+  processId?: number;
+  architecture?: string;
+  commandLine?: string;
+}
+
 export class ActivityTracker {
   private database: Database;
   private intervalId: NodeJS.Timeout | null = null;
   private saveIntervalId: NodeJS.Timeout | null = null; // 定期保存的interval ID
   private currentApp: string = '';
   private currentWindow: string = '';
+  private currentProcessInfo: ProcessInfo | null = null; // 当前进程详细信息
   private currentStartTime: Date | null = null;
   private currentRecordId: number | null = null;
   private checkInterval: number = 5000; // 默认5秒检查一次
@@ -91,23 +101,24 @@ export class ActivityTracker {
       // 先获取窗口标题
       const activeWindow = await this.getActiveWindowTitle();
       
-      // 然后获取应用名称（传入窗口标题用于推断）
-      const activeApp = await this.getActiveApplication(activeWindow);
+      // 获取应用名称和进程详细信息
+      const processInfo = await this.getActiveApplicationWithDetails(activeWindow);
 
       // 如果应用或窗口发生变化
-      if (activeApp !== this.currentApp || activeWindow !== this.currentWindow) {
+      if (processInfo.appName !== this.currentApp || activeWindow !== this.currentWindow) {
         // 保存之前的活动
         if (this.currentApp) {
-          console.log(`[Activity] App changed: ${this.currentApp} -> ${activeApp}`);
+          console.log(`[Activity] App changed: ${this.currentApp} -> ${processInfo.appName}`);
           this.saveCurrentActivity();
         }
         
         // 开始新的活动记录
-        this.currentApp = activeApp;
+        this.currentApp = processInfo.appName;
         this.currentWindow = activeWindow;
+        this.currentProcessInfo = processInfo;
         this.currentStartTime = new Date();
         this.currentRecordId = null;
-        console.log(`[Activity] Started tracking: ${activeApp} - ${activeWindow}`);
+        console.log(`[Activity] Started tracking: ${processInfo.appName} - ${activeWindow} (PID: ${processInfo.processId || 'N/A'})`);
       }
     } catch (error) {
       console.error('[Activity] Error checking activity:', error);
@@ -129,6 +140,12 @@ export class ActivityTracker {
       endTime: now.toISOString(),
       duration,
       date: this.getDateString(this.currentStartTime),
+      // 添加进程详细信息
+      processPath: this.currentProcessInfo?.processPath,
+      processName: this.currentProcessInfo?.processName,
+      processId: this.currentProcessInfo?.processId,
+      architecture: this.currentProcessInfo?.architecture,
+      commandLine: this.currentProcessInfo?.commandLine,
     };
 
     try {
@@ -144,7 +161,8 @@ export class ActivityTracker {
         const recordId = this.database.insertActivity(record);
         this.currentRecordId = recordId || null;
       }
-      console.log(`Saved activity: ${this.currentApp} - ${this.currentWindow} (${duration}s)`);
+      const pidInfo = this.currentProcessInfo?.processId ? ` (PID: ${this.currentProcessInfo.processId})` : '';
+      console.log(`Saved activity: ${this.currentApp} - ${this.currentWindow} (${duration}s)${pidInfo}`);
       this.lastSaveTime = now;
     } catch (error) {
       console.error('Error saving activity:', error);
@@ -178,6 +196,12 @@ export class ActivityTracker {
           endTime: now.toISOString(),
           duration,
           date: this.getDateString(this.currentStartTime),
+          // 添加进程详细信息
+          processPath: this.currentProcessInfo?.processPath,
+          processName: this.currentProcessInfo?.processName,
+          processId: this.currentProcessInfo?.processId,
+          architecture: this.currentProcessInfo?.architecture,
+          commandLine: this.currentProcessInfo?.commandLine,
         };
         const recordId = this.database.insertActivity(record);
         this.currentRecordId = recordId || null;
@@ -187,6 +211,148 @@ export class ActivityTracker {
     } catch (error) {
       console.error('Error saving/updating activity:', error);
     }
+  }
+
+  // 获取应用名称和详细的进程信息
+  private async getActiveApplicationWithDetails(windowTitle?: string): Promise<ProcessInfo> {
+    const appName = await this.getActiveApplication(windowTitle);
+    const processInfo = await this.getProcessDetails();
+    
+    return {
+      appName,
+      processPath: processInfo?.path,
+      processName: processInfo?.name,
+      processId: processInfo?.pid,
+      architecture: processInfo?.architecture,
+      commandLine: processInfo?.commandLine,
+    };
+  }
+
+  // 获取进程详细信息（路径、PID、架构等）
+  private async getProcessDetails(): Promise<{
+    path?: string;
+    name?: string;
+    pid?: number;
+    architecture?: string;
+    commandLine?: string;
+  } | null> {
+    if (process.platform !== 'win32') return null;
+
+    try {
+      // 使用 active-win 获取进程信息
+      const result = await activeWin();
+      
+      if (!result || !result.owner) {
+        // 尝试后备方案
+        const fallback = await this.getActiveWindowFallback();
+        if (fallback?.owner) {
+          return this.extractProcessInfo(fallback.owner);
+        }
+        return null;
+      }
+
+      return this.extractProcessInfo(result.owner);
+    } catch (error) {
+      console.error('[ProcessInfo] Error getting process details:', error);
+      try {
+        const fallback = await this.getActiveWindowFallback();
+        if (fallback?.owner) {
+          return this.extractProcessInfo(fallback.owner);
+        }
+      } catch (fallbackError) {
+        console.error('[ProcessInfo] Fallback also failed:', fallbackError);
+      }
+      return null;
+    }
+  }
+
+  // 从 owner 对象提取进程信息
+  private extractProcessInfo(owner: { path?: string; name?: string }): {
+    path?: string;
+    name?: string;
+    pid?: number;
+    architecture?: string;
+    commandLine?: string;
+  } {
+    const path = require('path');
+    const fs = require('fs');
+    
+    let processPath = owner.path || '';
+    let processName = owner.name || '';
+    let architecture: string | undefined;
+    let commandLine: string | undefined;
+    let pid: number | undefined;
+
+    // 从路径提取进程名称
+    if (processPath) {
+      processName = path.basename(processPath, path.extname(processPath));
+      
+      // 使用 PowerShell 获取进程详细信息（PID、架构、命令行）
+      try {
+        const { execSync } = require('child_process');
+        const psScript = `
+$procPath = "${processPath.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"
+$proc = Get-Process | Where-Object {$_.Path -eq $procPath} | Select-Object -First 1
+if ($proc) {
+  $pid = $proc.Id
+  $cmdLine = (Get-WmiObject Win32_Process -Filter "ProcessId = $pid").CommandLine
+  $is64bitOS = [Environment]::Is64BitOperatingSystem
+  $procArch = "64位"
+  try {
+    $procModule = $proc.MainModule
+    if ($procModule) {
+      $filePath = $procModule.FileName
+      if ($filePath -match "SysWOW64|Program Files \\(x86\\)") {
+        $procArch = "32位"
+      } elseif ($is64bitOS) {
+        # 检查是否为 32 位进程
+        $peHeader = [System.IO.File]::ReadAllBytes($filePath)
+        if ($peHeader[0] -eq 0x4D -and $peHeader[1] -eq 0x5A) {
+          $peOffset = [BitConverter]::ToInt32($peHeader, 0x3C)
+          if ($peOffset -lt $peHeader.Length) {
+            $machineType = [BitConverter]::ToUInt16($peHeader, $peOffset + 4)
+            if ($machineType -eq 0x014c) { $procArch = "32位" }
+          }
+        }
+      }
+    }
+  } catch {}
+  Write-Output "$pid|$procArch|$cmdLine"
+}
+`;
+        try {
+          const result = execSync(
+            `powershell -ExecutionPolicy Bypass -NoProfile -Command "${psScript}"`,
+            { encoding: 'utf-8', timeout: 3000, stdio: ['pipe', 'pipe', 'ignore'] }
+          );
+          const output = result.toString().trim();
+          if (output) {
+            const parts = output.split('|');
+            if (parts.length >= 1 && parts[0]) {
+              pid = parseInt(parts[0], 10);
+            }
+            if (parts.length >= 2 && parts[1]) {
+              architecture = parts[1];
+            }
+            if (parts.length >= 3 && parts[2]) {
+              commandLine = parts[2];
+            }
+          }
+        } catch (error) {
+          // 忽略错误，使用默认值
+        }
+      } catch (error) {
+        // 忽略架构检测错误
+      }
+    }
+
+    return {
+      path: processPath,
+      name: processName,
+      pid,
+      architecture,
+      commandLine,
+    };
   }
 
   private async getActiveApplication(windowTitle?: string): Promise<string> {

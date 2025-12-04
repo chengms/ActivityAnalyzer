@@ -101,6 +101,36 @@ export function TimelineDetail({ records, onClose }: TimelineDetailProps) {
                       {record.windowTitle && record.windowTitle !== 'Unknown Window' && (
                         <div className="detail-window">{record.windowTitle}</div>
                       )}
+                      {/* 进程详细信息 */}
+                      {(record.processId || record.architecture || record.processPath) && (
+                        <div className="detail-process-info">
+                          {record.processId && (
+                            <span className="process-badge">PID: {record.processId}</span>
+                          )}
+                          {record.architecture && (
+                            <span className="process-badge">{record.architecture}</span>
+                          )}
+                          {record.processName && record.processName !== record.appName && (
+                            <span className="process-badge" title={record.processPath}>
+                              {record.processName}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {record.processPath && (
+                        <div className="detail-process-path" title={record.processPath}>
+                          📁 {record.processPath.length > 60 
+                            ? record.processPath.substring(0, 60) + '...' 
+                            : record.processPath}
+                        </div>
+                      )}
+                      {record.commandLine && (
+                        <div className="detail-command-line" title={record.commandLine}>
+                          💻 {record.commandLine.length > 80 
+                            ? record.commandLine.substring(0, 80) + '...' 
+                            : record.commandLine}
+                        </div>
+                      )}
                       <div className="detail-duration">{formatDuration(record.duration)}</div>
                     </div>
                     <div className="timeline-detail-datetime">

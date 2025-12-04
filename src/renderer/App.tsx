@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { format, subDays } from 'date-fns';
+import React, { useState, useEffect, useRef } from 'react';
+import { format } from 'date-fns';
 import { DailySummary, AppUsage, WindowUsage } from '../tracker/database';
 import { ActivityChart } from './components/ActivityChart';
 import { AppUsageList } from './components/AppUsageList';
@@ -9,6 +9,7 @@ import { ReportViewer } from './components/ReportViewer';
 import { ReportHistory } from './components/ReportHistory';
 import { Settings } from './components/Settings';
 import { Sidebar } from './components/Sidebar';
+import { ReportDateRangeDialog } from './components/ReportDateRangeDialog';
 import './App.css';
 
 declare global {
@@ -19,7 +20,7 @@ declare global {
       getDailySummary: (date: string) => Promise<DailySummary | null>;
       getWindowUsage?: (date: string) => Promise<WindowUsage[]>;
       getActivityTimeline?: (date: string) => Promise<any[]>;
-      generateReport: (date: string) => Promise<{ success: boolean; path: string; htmlContent?: string; htmlPath?: string; excelPath?: string }>;
+      generateReport: (date: string, startDate?: string, endDate?: string) => Promise<{ success: boolean; path: string; htmlContent?: string; htmlPath?: string; excelPath?: string }>;
       getReportList?: () => Promise<Array<{ date: string; htmlPath: string; excelPath: string; exists: boolean }>>;
       readHTMLReport?: (htmlPath: string) => Promise<string | null>;
       openReportFile?: (filePath: string) => Promise<void>;
@@ -59,6 +60,8 @@ function App() {
   const [reportPaths, setReportPaths] = useState<{ htmlPath?: string; excelPath?: string }>({});
   const [showReportHistory, setShowReportHistory] = useState<boolean>(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [showReportDialog, setShowReportDialog] = useState<boolean>(false);
+  const lastCheckedDateRef = useRef<string>(format(new Date(), 'yyyy-MM-dd'));
 
   useEffect(() => {
     loadData();
@@ -73,6 +76,38 @@ function App() {
       };
     }
   }, [selectedDate]);
+
+  // 自动检测日期变化，新一天时自动跳转到当前日期
+  useEffect(() => {
+    const checkDateChange = () => {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const lastChecked = lastCheckedDateRef.current;
+      
+      // 如果日期变化了，且当前查看的日期是过去的日期，则自动切换到今天
+      if (today !== lastChecked) {
+        setSelectedDate((currentDate) => {
+          if (currentDate < today) {
+            console.log(`日期已变化：${lastChecked} -> ${today}，自动切换到今天`);
+            lastCheckedDateRef.current = today;
+            return today;
+          }
+          // 日期变化了，但用户正在查看未来日期或今天，只更新检查日期
+          lastCheckedDateRef.current = today;
+          return currentDate;
+        });
+      }
+    };
+
+    // 立即检查一次
+    checkDateChange();
+
+    // 每分钟检查一次日期变化（确保在午夜后能及时响应）
+    const intervalId = setInterval(checkDateChange, 60000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []);
 
   // 初始化追踪状态
   useEffect(() => {
@@ -107,10 +142,8 @@ function App() {
         setWindowUsage(windowData);
       }
 
-      // 获取最近7天的应用使用情况
-      const endDate = selectedDate;
-      const startDate = format(subDays(new Date(selectedDate), 7), 'yyyy-MM-dd');
-      const usage = await window.electronAPI.getAppUsage(startDate, endDate);
+      // 获取当天的应用使用情况（默认只显示当天）
+      const usage = await window.electronAPI.getAppUsage(selectedDate, selectedDate);
       setAppUsage(usage);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -119,10 +152,16 @@ function App() {
     }
   };
 
-  const handleGenerateReport = async () => {
+  const handleGenerateReport = () => {
+    // 显示时间段选择对话框
+    setShowReportDialog(true);
+  };
+
+  const handleConfirmReport = async (startDate: string, endDate: string) => {
+    setShowReportDialog(false);
     setReportGenerating(true);
     try {
-      const result = await window.electronAPI.generateReport(selectedDate);
+      const result = await window.electronAPI.generateReport(selectedDate, startDate, endDate);
       console.log('Report generation result:', result);
       
       if (result.success) {
@@ -130,7 +169,7 @@ function App() {
           // 显示报告查看器
           console.log('Showing report viewer with content length:', result.htmlContent.length);
           setReportContent(result.htmlContent);
-          setReportDate(selectedDate);
+          setReportDate(startDate === endDate ? startDate : `${startDate} 至 ${endDate}`);
           setReportPaths({
             htmlPath: result.htmlPath,
             excelPath: result.excelPath,
@@ -142,7 +181,7 @@ function App() {
             const content = await window.electronAPI.readHTMLReport(result.htmlPath);
             if (content) {
               setReportContent(content);
-              setReportDate(selectedDate);
+              setReportDate(startDate === endDate ? startDate : `${startDate} 至 ${endDate}`);
               setReportPaths({
                 htmlPath: result.htmlPath,
                 excelPath: result.excelPath,
@@ -321,6 +360,14 @@ function App() {
         <ReportHistory
           onSelectReport={handleViewReport}
           onClose={() => setShowReportHistory(false)}
+        />
+      )}
+
+      {showReportDialog && (
+        <ReportDateRangeDialog
+          defaultDate={selectedDate}
+          onConfirm={handleConfirmReport}
+          onCancel={() => setShowReportDialog(false)}
         />
       )}
 

@@ -16,7 +16,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getDailySummary: (date: string) => ipcRenderer.invoke('get-daily-summary', date),
   getWindowUsage: (date: string) => ipcRenderer.invoke('get-window-usage', date),
   getActivityTimeline: (date: string) => ipcRenderer.invoke('get-activity-timeline', date),
-  generateReport: (date: string) => ipcRenderer.invoke('generate-report', date),
+  generateReport: (date: string, startDate?: string, endDate?: string) => 
+    ipcRenderer.invoke('generate-report', date, startDate, endDate),
   getReportList: () => ipcRenderer.invoke('get-report-list') as Promise<Array<{ date: string; htmlPath: string; excelPath: string; exists: boolean }>>,
   readHTMLReport: (htmlPath: string) => ipcRenderer.invoke('read-html-report', htmlPath) as Promise<string | null>,
   openReportFile: (filePath: string) => ipcRenderer.invoke('open-report-file', filePath) as Promise<void>,

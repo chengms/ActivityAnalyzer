@@ -46,6 +46,44 @@ export class Reporter {
     }
   }
 
+  async generateDateRangeReport(startDate: string, endDate: string): Promise<{ success: boolean; path: string; htmlContent?: string; htmlPath?: string; excelPath?: string }> {
+    try {
+      const summary = this.database.getSummaryByDateRange(startDate, endDate);
+      if (!summary) {
+        return { success: false, path: '' };
+      }
+
+      // 确保报告目录存在
+      const reportsDir = path.join(app.getPath('userData'), 'reports');
+      if (!fs.existsSync(reportsDir)) {
+        fs.mkdirSync(reportsDir, { recursive: true });
+      }
+
+      // 生成文件名（使用日期范围）
+      const dateRangeStr = startDate === endDate ? startDate : `${startDate}_${endDate}`;
+
+      // 生成 Excel 报告
+      const excelPath = await this.generateExcelReport(summary, reportsDir, dateRangeStr);
+      
+      // 生成 HTML 报告
+      const htmlPath = await this.generateHTMLReport(summary, reportsDir, dateRangeStr);
+      
+      // 获取HTML内容用于显示
+      const htmlContent = this.generateHTMLContent(summary);
+
+      return {
+        success: true,
+        path: `Excel: ${excelPath}\nHTML: ${htmlPath}`,
+        htmlContent,
+        htmlPath,
+        excelPath,
+      };
+    } catch (error) {
+      console.error('Error generating date range report:', error);
+      return { success: false, path: '' };
+    }
+  }
+
   // 生成HTML内容（不保存文件，用于直接显示）
   private generateHTMLContent(summary: DailySummary): string {
     // 应用使用统计
@@ -65,7 +103,7 @@ export class Reporter {
     return this.generateHTMLReportContent(summary, appUsageList);
   }
 
-  private async generateExcelReport(summary: DailySummary, reportsDir: string): Promise<string> {
+  private async generateExcelReport(summary: DailySummary, reportsDir: string, dateRangeStr?: string): Promise<string> {
     const workbook = XLSX.utils.book_new();
 
     // 汇总表
@@ -119,14 +157,16 @@ export class Reporter {
     XLSX.utils.book_append_sheet(workbook, recordsSheet, '详细记录');
 
     // 保存文件
-    const fileName = `活动报告_${summary.date}.xlsx`;
+    const fileName = dateRangeStr 
+      ? `活动报告_${dateRangeStr}.xlsx`
+      : `活动报告_${summary.date}.xlsx`;
     const filePath = path.join(reportsDir, fileName);
     XLSX.writeFile(workbook, filePath);
 
     return filePath;
   }
 
-  private async generateHTMLReport(summary: DailySummary, reportsDir: string): Promise<string> {
+  private async generateHTMLReport(summary: DailySummary, reportsDir: string, dateRangeStr?: string): Promise<string> {
     // 应用使用统计
     const appUsageMap = new Map<string, { duration: number; count: number }>();
     summary.records.forEach(record => {
@@ -142,7 +182,9 @@ export class Reporter {
       .sort((a, b) => b.duration - a.duration);
 
     const html = this.generateHTMLReportContent(summary, appUsageList);
-    const fileName = `活动报告_${summary.date}.html`;
+    const fileName = dateRangeStr
+      ? `活动报告_${dateRangeStr}.html`
+      : `活动报告_${summary.date}.html`;
     const filePath = path.join(reportsDir, fileName);
     fs.writeFileSync(filePath, html, 'utf-8');
 
