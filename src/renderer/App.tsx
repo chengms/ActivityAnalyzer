@@ -161,7 +161,11 @@ function App() {
     setShowReportDialog(false);
     setReportGenerating(true);
     try {
-      const result = await window.electronAPI.generateReport(selectedDate, startDate, endDate);
+      // 如果是单日报告（startDate === endDate），只传递日期参数
+      // 否则传递时间段参数
+      const result = startDate === endDate
+        ? await window.electronAPI.generateReport(startDate)
+        : await window.electronAPI.generateReport(selectedDate, startDate, endDate);
       console.log('Report generation result:', result);
       
       if (result.success) {

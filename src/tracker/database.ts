@@ -105,8 +105,12 @@ export class Database {
         console.log('[Database] Added commandLine column');
       }
 
+      // 重新查询表结构以获取最新的列信息（因为可能刚刚添加了新列）
+      const updatedTableInfo = this.db.prepare("PRAGMA table_info(activities)").all() as Array<{ name: string }>;
+      const updatedColumnNames = updatedTableInfo.map(col => col.name);
+
       // 添加进程ID索引（如果不存在且字段已存在）
-      if (columnNames.includes('processId')) {
+      if (updatedColumnNames.includes('processId')) {
         const indexes = this.db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_processId'").all();
         if (indexes.length === 0) {
           this.db.exec('CREATE INDEX IF NOT EXISTS idx_processId ON activities(processId)');

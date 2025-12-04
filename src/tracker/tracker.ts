@@ -215,8 +215,39 @@ export class ActivityTracker {
 
   // 获取应用名称和详细的进程信息
   private async getActiveApplicationWithDetails(windowTitle?: string): Promise<ProcessInfo> {
-    const appName = await this.getActiveApplication(windowTitle);
+    // 先获取进程详细信息（包含路径等信息）
     const processInfo = await this.getProcessDetails();
+    
+    // 基于进程信息推断应用名称，避免重复调用 activeWin()
+    let appName: string;
+    if (processInfo?.path) {
+      // 从进程路径提取应用名称
+      const path = require('path');
+      const processName = path.basename(processInfo.path, path.extname(processInfo.path));
+      
+      // 尝试从进程名和窗口标题推断应用名称
+      const inferredApp = this.inferAppFromProcessName(processName, windowTitle || '');
+      if (inferredApp) {
+        appName = inferredApp;
+      } else {
+        // 如果无法推断，尝试从窗口标题推断
+        if (windowTitle && windowTitle !== 'Unknown Window') {
+          const inferredFromTitle = this.inferAppFromWindowTitle(windowTitle);
+          appName = inferredFromTitle || processName;
+        } else {
+          appName = processName;
+        }
+      }
+      
+      // 清理应用名称
+      appName = appName.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '');
+    } else if (processInfo?.name) {
+      // 如果有进程名称但没有路径，使用进程名称
+      appName = processInfo.name;
+    } else {
+      // 如果无法获取进程信息，使用原有方法（会调用 activeWin）
+      appName = await this.getActiveApplication(windowTitle);
+    }
     
     return {
       appName,

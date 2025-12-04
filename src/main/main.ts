@@ -314,12 +314,13 @@ ipcMain.handle('delete-unknown-activities', async (event, date?: string) => {
 
 ipcMain.handle('generate-report', async (event, date: string, startDate?: string, endDate?: string) => {
   if (!reporter) return { success: false, path: '' };
-  // 如果提供了开始日期和结束日期，生成时间段报告
-  if (startDate && endDate) {
+  // 如果提供了开始日期和结束日期，且它们不同，生成时间段报告
+  if (startDate && endDate && startDate !== endDate) {
     return await reporter.generateDateRangeReport(startDate, endDate);
   }
-  // 否则生成单日报告
-  return await reporter.generateDailyReport(date);
+  // 否则生成单日报告（使用传入的 date 或 startDate）
+  const reportDate = startDate || date;
+  return await reporter.generateDailyReport(reportDate);
 });
 
 ipcMain.handle('get-report-list', async () => {
