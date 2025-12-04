@@ -27,7 +27,8 @@ export class ActivityTracker {
   private lastSaveTime: Date | null = null; // 上次保存时间
   private saveInterval: number = 60000; // 每60秒保存一次当前活动（即使没有切换）
   // 缓存进程详细信息，减少重复的 PowerShell 调用
-  private processInfoCache: Map<string, { info: { path?: string; name?: string; pid?: number; architecture?: string; commandLine?: string } | null; timestamp: number }> = new Map();
+  // 注意：只缓存架构和命令行（对于同一可执行文件通常是相同的），不缓存 PID（每个进程实例都不同）
+  private processInfoCache: Map<string, { info: { architecture?: string; commandLine?: string } | null; timestamp: number }> = new Map();
   private readonly PROCESS_INFO_CACHE_TTL = 30000; // 缓存30秒
   private readonly DETAILED_INFO_ENABLED = true; // 是否启用详细进程信息获取（可配置）
 
@@ -343,10 +344,28 @@ export class ActivityTracker {
         const now = Date.now();
         
         if (cached && (now - cached.timestamp) < this.PROCESS_INFO_CACHE_TTL) {
-          // 使用缓存的结果
-          pid = cached.info?.pid;
+          // 使用缓存的结果（只缓存架构和命令行，不缓存 PID）
           architecture = cached.info?.architecture;
           commandLine = cached.info?.commandLine;
+          // PID 需要实时获取，因为每个进程实例都有不同的 PID
+          // 只获取当前进程的 PID（轻量级操作）
+          try {
+            const pidScript = `
+$procPath = "${processPath.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"
+$proc = Get-Process | Where-Object {$_.Path -eq $procPath} | Select-Object -First 1
+if ($proc) { Write-Output $proc.Id }
+`;
+            const pidResult = execSync(
+              `powershell -ExecutionPolicy Bypass -NoProfile -Command "${pidScript}"`,
+              { encoding: 'utf-8', timeout: 1000, stdio: ['pipe', 'pipe', 'ignore'] as const }
+            );
+            const pidOutput = pidResult.toString().trim();
+            if (pidOutput) {
+              pid = parseInt(pidOutput, 10);
+            }
+          } catch (error) {
+            // 忽略 PID 获取错误
+          }
         } else {
           // 使用 PowerShell 获取进程详细信息（PID、架构、命令行）
           try {
@@ -397,9 +416,9 @@ if ($proc) {
                 commandLine = parts[2];
               }
               
-              // 缓存结果
+              // 缓存结果（只缓存架构和命令行，不缓存 PID，因为 PID 是进程实例特定的）
               this.processInfoCache.set(cacheKey, {
-                info: { pid, architecture, commandLine },
+                info: { architecture, commandLine },
                 timestamp: now
               });
               
