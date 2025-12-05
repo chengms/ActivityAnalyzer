@@ -5,6 +5,7 @@ import { ActivityTracker } from '../tracker/tracker';
 import { Reporter } from '../reporter/reporter';
 import { Settings, AppSettings } from '../settings/settings';
 import { AutoLauncher } from './autoLauncher';
+import { logger } from './logger';
 
 // 设置应用名称（在创建窗口之前）
 if (!app.isReady()) {
@@ -129,7 +130,7 @@ function createTray() {
       trayIcon = trayIcon.resize({ width: 32, height: 32 });
     }
   } catch (error) {
-    console.error('Error creating tray icon:', error);
+    logger.error('Error creating tray icon:', error);
     // 创建一个最小的图标
     trayIcon = nativeImage.createEmpty();
   }
@@ -180,15 +181,17 @@ app.setPath('userCache', path.join(app.getPath('userData'), 'cache'));
 
 app.whenReady().then(async () => {
   try {
-    console.log('App ready, initializing...');
+    // 更新日志目录到用户数据目录
+    logger.updateLogDir();
+    logger.info('App ready, initializing...');
     
     // 初始化设置
-    console.log('Initializing settings...');
+    logger.info('Initializing settings...');
     settings = new Settings();
-    console.log('Settings initialized');
+    logger.info('Settings initialized');
     
     // 初始化自动启动器
-    console.log('Initializing auto launcher...');
+    logger.info('Initializing auto launcher...');
     autoLauncher = new AutoLauncher();
     
     // 检查并应用开机自启动设置
@@ -202,40 +205,41 @@ app.whenReady().then(async () => {
         }
       }
     } catch (error) {
-      console.error('Error handling auto start:', error);
+      logger.error('Error handling auto start:', error);
     }
 
     // 初始化数据库
-    console.log('Initializing database...');
+    logger.info('Initializing database...');
     database = new Database();
     database.init();
-    console.log('Database initialized');
+    logger.info('Database initialized');
 
     // 初始化活动追踪器（使用设置中的检测间隔）
-    console.log('Initializing tracker...');
+    logger.info('Initializing tracker...');
     const checkInterval = settings.getSetting('checkInterval');
     tracker = new ActivityTracker(database, checkInterval);
     tracker.start();
-    console.log('Tracker started');
+    logger.info('Tracker started');
 
     // 监听锁屏事件
     setupLockScreenMonitoring();
 
     // 初始化报告生成器
-    console.log('Initializing reporter...');
+    logger.info('Initializing reporter...');
     reporter = new Reporter(database);
 
     // 创建系统托盘
-    console.log('Creating tray...');
+    logger.info('Creating tray...');
     createTray();
-    console.log('Tray created');
+    logger.info('Tray created');
 
     // 创建窗口（如果设置了启动时最小化，窗口会隐藏）
-    console.log('Creating window...');
+    logger.info('Creating window...');
     createWindow();
-    console.log('Window created, app ready!');
+    logger.info('Window created, app ready!');
+    logger.info(`Log file location: ${logger.getLogFilePath()}`);
   } catch (error) {
-    console.error('Error during initialization:', error);
+    logger.error('Error during initialization:', error);
     app.quit();
   }
 
@@ -391,12 +395,21 @@ ipcMain.handle('get-auto-start-status', async () => {
   return await autoLauncher.isEnabled();
 });
 
+// 日志相关 IPC
+ipcMain.handle('get-log-file-path', async () => {
+  return logger.getLogFilePath();
+});
+
+ipcMain.handle('get-log-dir-path', async () => {
+  return logger.getLogDirPath();
+});
+
 // 追踪控制相关 IPC
 ipcMain.handle('start-tracking', async () => {
   if (!tracker) return false;
   tracker.start();
   isManuallyStopped = false;
-  console.log('Tracking started manually');
+  logger.info('Tracking started manually');
   return true;
 });
 
@@ -404,7 +417,7 @@ ipcMain.handle('stop-tracking', async () => {
   if (!tracker) return false;
   tracker.stop();
   isManuallyStopped = true;
-  console.log('Tracking stopped manually');
+  logger.info('Tracking stopped manually');
   return true;
 });
 
@@ -427,7 +440,7 @@ ipcMain.handle('get-recent-activities', async () => {
 function setupLockScreenMonitoring() {
   // Windows 和 macOS 都支持 lock-screen 和 unlock-screen 事件
   powerMonitor.on('lock-screen', () => {
-    console.log('Screen locked, stopping tracking...');
+    logger.info('Screen locked, stopping tracking...');
     if (tracker && tracker.isRunning()) {
       tracker.stop();
       // 通知渲染进程
@@ -438,7 +451,7 @@ function setupLockScreenMonitoring() {
   });
 
   powerMonitor.on('unlock-screen', () => {
-    console.log('Screen unlocked, resuming tracking...');
+    logger.info('Screen unlocked, resuming tracking...');
     // 只有在不是手动停止的情况下才自动恢复
     if (tracker && !tracker.isRunning() && !isManuallyStopped) {
       tracker.start();
@@ -451,7 +464,7 @@ function setupLockScreenMonitoring() {
 
   // 监听系统挂起和恢复（可选，用于更全面的监控）
   powerMonitor.on('suspend', () => {
-    console.log('System suspending, stopping tracking...');
+    logger.info('System suspending, stopping tracking...');
     if (tracker && tracker.isRunning()) {
       tracker.stop();
       if (mainWindow) {
@@ -461,7 +474,7 @@ function setupLockScreenMonitoring() {
   });
 
   powerMonitor.on('resume', () => {
-    console.log('System resumed, resuming tracking...');
+    logger.info('System resumed, resuming tracking...');
     // 只有在不是手动停止的情况下才自动恢复
     if (tracker && !tracker.isRunning() && !isManuallyStopped) {
       tracker.start();

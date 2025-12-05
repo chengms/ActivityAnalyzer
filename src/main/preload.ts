@@ -51,5 +51,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('delete-activity-by-app-date', date, appName) as Promise<number>,
   deleteUnknownActivities: (date?: string) => 
     ipcRenderer.invoke('delete-unknown-activities', date) as Promise<number>,
+  // 日志相关
+  getLogFilePath: () => ipcRenderer.invoke('get-log-file-path') as Promise<string>,
+  getLogDirPath: () => ipcRenderer.invoke('get-log-dir-path') as Promise<string>,
 });
 
