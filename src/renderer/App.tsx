@@ -393,6 +393,7 @@ function App() {
           setShowSettings(true);
           setShowChart(false);
           setShowReportHistory(false);
+          setShowReportViewer(false);
           setShowTimelineFromSidebar(false);
           setActiveTab('main');
         }}
@@ -402,6 +403,7 @@ function App() {
           setShowReportHistory(true);
           setShowChart(false);
           setShowSettings(false);
+          setShowReportViewer(false);
           setShowTimelineFromSidebar(false);
           setActiveTab('main');
         }}
@@ -409,6 +411,7 @@ function App() {
           setShowChart(true);
           setShowSettings(false);
           setShowReportHistory(false);
+          setShowReportViewer(false);
           setShowTimelineFromSidebar(false);
           setActiveTab('main');
         }}
@@ -417,6 +420,7 @@ function App() {
           setShowChart(false);
           setShowSettings(false);
           setShowReportHistory(false);
+          setShowReportViewer(false);
           setActiveTab('main');
           // 加载时间线数据
           if (window.electronAPI.getActivityTimeline) {
@@ -433,7 +437,14 @@ function App() {
         }}
         onGoHome={handleGoHome}
         onToggleTracking={handleToggleTracking}
-        onAppRanking={() => setActiveTab('ranking')}
+        onAppRanking={() => {
+          setActiveTab('ranking');
+          setShowChart(false);
+          setShowSettings(false);
+          setShowReportHistory(false);
+          setShowReportViewer(false);
+          setShowTimelineFromSidebar(false);
+        }}
         isTracking={isTracking}
         reportGenerating={reportGenerating}
         canGenerateReport={!!dailySummary}
