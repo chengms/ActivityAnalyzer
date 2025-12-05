@@ -108,6 +108,26 @@ export function Sidebar({
             )}
           </button>
           
+          <button
+            className="sidebar-item"
+            onClick={onReportHistory}
+            title="历史报告"
+          >
+            <span className="sidebar-icon">📋</span>
+            {!collapsed && <span className="sidebar-text">历史报告</span>}
+          </button>
+        </div>
+
+        <div className="sidebar-section">
+          {!collapsed && <div className="sidebar-section-title">设置</div>}
+          <button
+            className="sidebar-item"
+            onClick={onSettings}
+            title="设置"
+          >
+            <span className="sidebar-icon">⚙️</span>
+            {!collapsed && <span className="sidebar-text">设置</span>}
+          </button>
         </div>
       </div>
     </div>

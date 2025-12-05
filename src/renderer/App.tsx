@@ -416,6 +416,13 @@ function App() {
         <main className="app-main">
         {loading ? (
           <div className="loading">加载中...</div>
+        ) : activeTab === 'settings' ? (
+          <Settings onClose={() => setActiveTab('main')} />
+        ) : activeTab === 'history' ? (
+          <ReportHistory
+            onSelectReport={handleViewReport}
+            onClose={() => setActiveTab('main')}
+          />
         ) : dailySummary ? (
           <>
             <div className="summary-cards">
@@ -479,21 +486,6 @@ function App() {
                     usage={appUsage} 
                     onDelete={handleDeleteApp}
                     selectedDate={selectedDate}
-                  />
-                </div>
-              </div>
-            ) : activeTab === 'settings' ? (
-              <div className="settings-tab-content">
-                <div className="content-panel">
-                  <Settings onClose={() => setActiveTab('main')} />
-                </div>
-              </div>
-            ) : activeTab === 'history' ? (
-              <div className="history-tab-content">
-                <div className="content-panel">
-                  <ReportHistory
-                    onSelectReport={handleViewReport}
-                    onClose={() => setActiveTab('main')}
                   />
                 </div>
               </div>
