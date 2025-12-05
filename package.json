@@ -13,7 +13,12 @@
     "postinstall": "electron-rebuild",
     "rebuild": "electron-rebuild",
     "start": "electron .",
-    "electron": "electron ."
+    "electron": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:win:portable": "electron-builder --win portable",
+    "dist:all": "electron-builder --win --mac --linux"
   },
   "keywords": [
     "activity-tracker",
@@ -31,6 +36,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "concurrently": "^8.2.2",
     "electron": "^28.3.3",
+    "electron-builder": "^26.0.12",
     "electron-rebuild": "^3.2.9",
     "typescript": "^5.3.3",
     "vite": "^5.0.8"
@@ -45,5 +51,52 @@
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0",
     "xlsx": "^0.18.5"
+  },
+  "build": {
+    "appId": "com.activityanalyzer.app",
+    "productName": "活动分析器",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "!node_modules/**/*",
+      "!src/**/*",
+      "!*.md",
+      "!*.config.*",
+      "!tsconfig*.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "活动分析器",
+      "installerLanguages": [
+        "zh_CN"
+      ],
+      "language": "2052"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}.${ext}"
+    }
   }
 }
