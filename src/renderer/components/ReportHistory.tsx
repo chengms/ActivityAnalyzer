@@ -100,13 +100,11 @@ export function ReportHistory({ onSelectReport, onClose }: ReportHistoryProps) {
   };
 
   return (
-    <div className="report-history-overlay" onClick={onClose}>
-      <div className="report-history-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="report-history-header">
-          <h2>📋 历史报告</h2>
-          <button className="btn-close" onClick={onClose}>×</button>
-        </div>
-        <div className="report-history-content">
+    <div className="report-history-content-wrapper">
+      <div className="report-history-header">
+        <h2>📋 历史报告</h2>
+      </div>
+      <div className="report-history-content">
           {loading ? (
             <div className="report-history-loading">加载中...</div>
           ) : reports.length === 0 ? (
@@ -132,7 +130,6 @@ export function ReportHistory({ onSelectReport, onClose }: ReportHistoryProps) {
               ))}
             </div>
           )}
-        </div>
       </div>
     </div>
   );

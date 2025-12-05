@@ -73,10 +73,8 @@ export function Settings({ onClose }: SettingsProps) {
 
   if (loading) {
     return (
-      <div className="settings-overlay">
-        <div className="settings-modal">
-          <div className="loading">加载中...</div>
-        </div>
+      <div className="settings-content-wrapper">
+        <div className="loading">加载中...</div>
       </div>
     );
   }
@@ -86,12 +84,10 @@ export function Settings({ onClose }: SettingsProps) {
   }
 
   return (
-    <div className="settings-overlay" onClick={onClose}>
-      <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="settings-header">
-          <h2>⚙️ 设置</h2>
-          <button className="close-btn" onClick={onClose}>×</button>
-        </div>
+    <div className="settings-content-wrapper">
+      <div className="settings-header">
+        <h2>⚙️ 设置</h2>
+      </div>
 
         <div className="settings-content">
           <div className="settings-section">
@@ -238,20 +234,16 @@ export function Settings({ onClose }: SettingsProps) {
           </div>
         </div>
 
-        <div className="settings-footer">
-          {message && (
-            <div className={`message ${message.includes('失败') ? 'error' : 'success'}`}>
-              {message}
-            </div>
-          )}
-          <div className="settings-actions">
-            <button className="btn btn-secondary" onClick={onClose}>
-              取消
-            </button>
-            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-              {saving ? '保存中...' : '保存'}
-            </button>
+      <div className="settings-footer">
+        {message && (
+          <div className={`message ${message.includes('失败') ? 'error' : 'success'}`}>
+            {message}
           </div>
+        )}
+        <div className="settings-actions">
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? '保存中...' : '保存'}
+          </button>
         </div>
       </div>
     </div>

@@ -9,8 +9,8 @@ interface SidebarProps {
   onReportHistory: () => void;
   onToggleTracking: () => void;
   onAppRanking?: () => void;
-  activeTab?: 'main' | 'ranking';
-  onTabChange?: (tab: 'main' | 'ranking') => void;
+  activeTab?: 'main' | 'ranking' | 'settings' | 'history';
+  onTabChange?: (tab: 'main' | 'ranking' | 'settings' | 'history') => void;
   isTracking: boolean;
   reportGenerating: boolean;
   canGenerateReport: boolean;
@@ -59,6 +59,20 @@ export function Sidebar({
             <span className="sidebar-icon">🏆</span>
             <span className="sidebar-text">应用排行</span>
           </button>
+          <button
+            className={`sidebar-tab ${activeTab === 'history' ? 'active' : ''}`}
+            onClick={() => onTabChange('history')}
+          >
+            <span className="sidebar-icon">📋</span>
+            <span className="sidebar-text">历史报告</span>
+          </button>
+          <button
+            className={`sidebar-tab ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => onTabChange('settings')}
+          >
+            <span className="sidebar-icon">⚙️</span>
+            <span className="sidebar-text">设置</span>
+          </button>
         </div>
       )}
       
@@ -94,27 +108,6 @@ export function Sidebar({
             )}
           </button>
           
-          <button
-            className="sidebar-item"
-            onClick={onReportHistory}
-            title="历史报告"
-          >
-            <span className="sidebar-icon">📋</span>
-            {!collapsed && <span className="sidebar-text">历史报告</span>}
-          </button>
-          
-        </div>
-
-        <div className="sidebar-section">
-          {!collapsed && <div className="sidebar-section-title">设置</div>}
-          <button
-            className="sidebar-item"
-            onClick={onSettings}
-            title="设置"
-          >
-            <span className="sidebar-icon">⚙️</span>
-            {!collapsed && <span className="sidebar-text">设置</span>}
-          </button>
         </div>
       </div>
     </div>

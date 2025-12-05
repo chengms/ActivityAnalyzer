@@ -64,7 +64,7 @@ function App() {
   const [showReportHistory, setShowReportHistory] = useState<boolean>(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [showReportDialog, setShowReportDialog] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'main' | 'ranking'>('main');
+  const [activeTab, setActiveTab] = useState<'main' | 'ranking' | 'settings' | 'history'>('main');
   const lastCheckedDateRef = useRef<string>(format(new Date(), 'yyyy-MM-dd'));
 
   // 使用 useCallback 包装 loadData，确保在 selectedDate 变化时正确更新
@@ -353,9 +353,9 @@ function App() {
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        onSettings={() => setShowSettings(true)}
+        onSettings={() => setActiveTab('settings')}
         onGenerateReport={handleGenerateReport}
-        onReportHistory={() => setShowReportHistory(true)}
+        onReportHistory={() => setActiveTab('history')}
         onToggleTracking={handleToggleTracking}
         onAppRanking={() => setActiveTab('ranking')}
         activeTab={activeTab}
@@ -387,10 +387,6 @@ function App() {
           </div>
         </header>
 
-      {showSettings && (
-        <Settings onClose={() => setShowSettings(false)} />
-      )}
-
       {showTimelineDetail && (
         <TimelineDetail 
           records={timelineRecords} 
@@ -405,13 +401,6 @@ function App() {
           htmlPath={reportPaths.htmlPath}
           excelPath={reportPaths.excelPath}
           onClose={() => setShowReportViewer(false)}
-        />
-      )}
-
-      {showReportHistory && (
-        <ReportHistory
-          onSelectReport={handleViewReport}
-          onClose={() => setShowReportHistory(false)}
         />
       )}
 
@@ -476,7 +465,7 @@ function App() {
                   <CurrentActivity isTracking={isTracking} />
                 </div>
               </div>
-            ) : (
+            ) : activeTab === 'ranking' ? (
               <div className="app-ranking-tab-content">
                 <div className="content-panel">
                   <div className="panel-header">
@@ -493,7 +482,22 @@ function App() {
                   />
                 </div>
               </div>
-            )}
+            ) : activeTab === 'settings' ? (
+              <div className="settings-tab-content">
+                <div className="content-panel">
+                  <Settings onClose={() => setActiveTab('main')} />
+                </div>
+              </div>
+            ) : activeTab === 'history' ? (
+              <div className="history-tab-content">
+                <div className="content-panel">
+                  <ReportHistory
+                    onSelectReport={handleViewReport}
+                    onClose={() => setActiveTab('main')}
+                  />
+                </div>
+              </div>
+            ) : null}
           </>
         ) : (
           <div className="empty-state">

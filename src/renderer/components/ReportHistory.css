@@ -1,34 +1,17 @@
-.report-history-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
-}
-
-.report-history-modal {
-  background: white;
-  border-radius: 12px;
-  width: 100%;
-  max-width: 600px;
-  max-height: 80vh;
+.report-history-content-wrapper {
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  height: 100%;
+  min-height: 0;
 }
 
 .report-history-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e0e0e0;
+  padding: 0 0 20px 0;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #f0f0f0;
 }
 
 .report-history-header h2 {
@@ -60,7 +43,8 @@
 .report-history-content {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 24px;
+  padding: 0;
+  min-height: 0;
 }
 
 .report-history-loading,
