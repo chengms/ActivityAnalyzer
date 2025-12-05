@@ -29,6 +29,16 @@ export class ActivityTracker {
   private currentTabTitle: string | null = null; // 当前标签页标题
   private currentTabUrl: string | null = null; // 当前标签页URL
   private checkInterval: number = 5000; // 默认5秒检查一次
+  // 最近活动历史（用于实时显示）
+  private recentActivities: Array<{
+    appName: string;
+    windowTitle: string;
+    startTime: Date;
+    endTime: Date | null;
+    duration: number;
+    isActive: boolean; // 是否为当前活动
+  }> = [];
+  private readonly MAX_RECENT_ACTIVITIES = 10; // 最多保存10个最近活动
   private lastSaveTime: Date | null = null; // 上次保存时间
   private saveInterval: number = 60000; // 每60秒保存一次当前活动（即使没有切换）
   private lastCheckTime: Date | null = null; // 上次检查时间，用于准确计算窗口切换时间
@@ -127,6 +137,99 @@ export class ActivityTracker {
     return this.intervalId !== null;
   }
 
+  // 获取当前活动信息（用于实时显示）
+  getCurrentActivity(): {
+    appName: string;
+    windowTitle: string;
+    duration: number;
+    startTime: Date | null;
+  } | null {
+    if (!this.currentApp || !this.currentStartTime) {
+      return null;
+    }
+
+    const now = new Date();
+    const duration = Math.floor((now.getTime() - this.currentStartTime.getTime()) / 1000);
+
+    return {
+      appName: this.currentApp,
+      windowTitle: this.currentWindow,
+      duration,
+      startTime: this.currentStartTime,
+    };
+  }
+
+  // 获取最近活动列表（用于实时显示多个应用）
+  getRecentActivities(): Array<{
+    appName: string;
+    windowTitle: string;
+    duration: number;
+    startTime: Date;
+    endTime: Date | null;
+    isActive: boolean;
+  }> {
+    const now = new Date();
+    const activities = [...this.recentActivities];
+
+    // 更新当前活动的持续时长
+    if (this.currentApp && this.currentStartTime) {
+      const currentDuration = Math.floor((now.getTime() - this.currentStartTime.getTime()) / 1000);
+      
+      // 检查当前活动是否已经在列表中
+      const currentIndex = activities.findIndex(a => a.isActive);
+      if (currentIndex >= 0) {
+        // 更新现有当前活动
+        activities[currentIndex] = {
+          appName: this.currentApp,
+          windowTitle: this.currentWindow,
+          startTime: this.currentStartTime,
+          endTime: null,
+          duration: currentDuration,
+          isActive: true,
+        };
+      } else {
+        // 添加新的当前活动到列表开头
+        activities.unshift({
+          appName: this.currentApp,
+          windowTitle: this.currentWindow,
+          startTime: this.currentStartTime,
+          endTime: null,
+          duration: currentDuration,
+          isActive: true,
+        });
+      }
+    }
+
+    // 限制列表长度
+    return activities.slice(0, this.MAX_RECENT_ACTIVITIES);
+  }
+
+  // 添加活动到最近活动历史
+  private addToRecentActivities(activity: {
+    appName: string;
+    windowTitle: string;
+    startTime: Date;
+    endTime: Date | null;
+    duration: number;
+    isActive: boolean;
+  }) {
+    // 移除之前的当前活动标记
+    this.recentActivities.forEach(a => {
+      if (a.isActive) {
+        a.isActive = false;
+        a.endTime = activity.startTime; // 使用新活动的开始时间作为旧活动的结束时间
+      }
+    });
+
+    // 添加到列表开头
+    this.recentActivities.unshift(activity);
+
+    // 限制列表长度
+    if (this.recentActivities.length > this.MAX_RECENT_ACTIVITIES) {
+      this.recentActivities = this.recentActivities.slice(0, this.MAX_RECENT_ACTIVITIES);
+    }
+  }
+
   stop() {
     if (this.intervalId) {
       clearInterval(this.intervalId);
@@ -166,6 +269,20 @@ export class ActivityTracker {
             // 使用上一次检查时间作为旧窗口的结束时间，更准确
             // 如果这是第一次检查（lastCheckTime 为 null），使用当前时间
             const endTime = this.lastCheckTime || checkTime;
+            
+            // 将旧活动添加到最近活动历史
+            if (this.currentStartTime) {
+              const oldDuration = Math.floor((endTime.getTime() - this.currentStartTime.getTime()) / 1000);
+              this.addToRecentActivities({
+                appName: this.currentApp,
+                windowTitle: this.currentWindow,
+                startTime: this.currentStartTime,
+                endTime: endTime,
+                duration: oldDuration,
+                isActive: false,
+              });
+            }
+            
             this.saveCurrentActivity(endTime);
           }
           

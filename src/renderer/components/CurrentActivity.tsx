@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import './CurrentActivity.css';
 
+interface ActivityInfo {
+  appName: string;
+  windowTitle: string;
+  duration: number;
+  startTime: Date;
+  endTime: Date | null;
+  isActive: boolean;
+}
+
 interface CurrentActivityProps {
   isTracking: boolean;
 }
 
 export function CurrentActivity({ isTracking }: CurrentActivityProps) {
-  const [currentApp, setCurrentApp] = useState<string>('');
-  const [currentWindow, setCurrentWindow] = useState<string>('');
-  const [currentDuration, setCurrentDuration] = useState<number>(0);
+  const [activities, setActivities] = useState<ActivityInfo[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   useEffect(() => {
@@ -22,19 +29,38 @@ export function CurrentActivity({ isTracking }: CurrentActivityProps) {
     // 定期更新当前活动信息（每2秒更新一次）
     const interval = setInterval(async () => {
       try {
-        // 这里需要从主进程获取当前活动信息
-        // 暂时使用模拟数据，后续需要添加IPC接口
-        // const info = await window.electronAPI.getCurrentActivity();
-        // if (info) {
-        //   setCurrentApp(info.appName);
-        //   setCurrentWindow(info.windowTitle);
-        //   setCurrentDuration(info.duration);
-        //   setLastUpdate(new Date());
-        // }
+        if (window.electronAPI.getCurrentActivity) {
+          const info = await window.electronAPI.getCurrentActivity();
+          if (info) {
+            setCurrentApp(info.appName);
+            setCurrentWindow(info.windowTitle);
+            setCurrentDuration(info.duration);
+            setLastUpdate(new Date());
+          } else {
+            // 如果没有活动信息，清空显示
+            setCurrentApp('');
+            setCurrentWindow('');
+            setCurrentDuration(0);
+          }
+        }
       } catch (error) {
         console.error('Error getting current activity:', error);
       }
     }, 2000);
+
+    // 立即获取一次
+    if (window.electronAPI.getCurrentActivity) {
+      window.electronAPI.getCurrentActivity().then(info => {
+        if (info) {
+          setCurrentApp(info.appName);
+          setCurrentWindow(info.windowTitle);
+          setCurrentDuration(info.duration);
+          setLastUpdate(new Date());
+        }
+      }).catch(err => {
+        console.error('Error getting initial current activity:', err);
+      });
+    }
 
     return () => clearInterval(interval);
   }, [isTracking]);

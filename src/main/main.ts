@@ -413,6 +413,16 @@ ipcMain.handle('get-tracking-status', async () => {
   return tracker.isRunning();
 });
 
+ipcMain.handle('get-current-activity', async () => {
+  if (!tracker) return null;
+  return tracker.getCurrentActivity();
+});
+
+ipcMain.handle('get-recent-activities', async () => {
+  if (!tracker) return [];
+  return tracker.getRecentActivities();
+});
+
 // 锁屏监控设置
 function setupLockScreenMonitoring() {
   // Windows 和 macOS 都支持 lock-screen 和 unlock-screen 事件

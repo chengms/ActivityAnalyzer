@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startTracking: () => ipcRenderer.invoke('start-tracking') as Promise<boolean>,
   stopTracking: () => ipcRenderer.invoke('stop-tracking') as Promise<boolean>,
   getTrackingStatus: () => ipcRenderer.invoke('get-tracking-status') as Promise<boolean>,
+  getCurrentActivity: () => ipcRenderer.invoke('get-current-activity') as Promise<{ appName: string; windowTitle: string; duration: number; startTime: Date | null } | null>,
+  getRecentActivities: () => ipcRenderer.invoke('get-recent-activities') as Promise<Array<{ appName: string; windowTitle: string; duration: number; startTime: Date; endTime: Date | null; isActive: boolean }>>,
   onTrackingStatusChanged: (callback: (isRunning: boolean) => void) => {
     const handler = (_: any, isRunning: boolean) => callback(isRunning);
     ipcRenderer.on('tracking-status-changed', handler);

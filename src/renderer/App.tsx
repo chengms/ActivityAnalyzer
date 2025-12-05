@@ -32,6 +32,8 @@ declare global {
       startTracking?: () => Promise<boolean>;
       stopTracking?: () => Promise<boolean>;
       getTrackingStatus?: () => Promise<boolean>;
+      getCurrentActivity?: () => Promise<{ appName: string; windowTitle: string; duration: number; startTime: Date | null } | null>;
+      getRecentActivities?: () => Promise<Array<{ appName: string; windowTitle: string; duration: number; startTime: Date; endTime: Date | null; isActive: boolean }>>;
       onTrackingStatusChanged?: (callback: (isRunning: boolean) => void) => (() => void) | undefined;
       getReportList?: () => Promise<Array<{ date: string; htmlPath: string; excelPath: string; exists: boolean }>>;
       readHTMLReport?: (htmlPath: string) => Promise<string | null>;
@@ -461,10 +463,6 @@ function App() {
             {activeTab === 'main' ? (
               <div className="content-grid">
                 <div className="content-panel">
-                  <h2>实时检测</h2>
-                  <CurrentActivity isTracking={isTracking} />
-                </div>
-                <div className="content-panel">
                   <h2>窗口使用统计</h2>
                   <WindowUsageList 
                     usage={windowUsage.slice(0, 10)} 
@@ -472,6 +470,10 @@ function App() {
                     onDelete={handleDeleteWindow}
                     selectedDate={selectedDate}
                   />
+                </div>
+                <div className="content-panel">
+                  <h2>实时检测</h2>
+                  <CurrentActivity isTracking={isTracking} />
                 </div>
               </div>
             ) : (
