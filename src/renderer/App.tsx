@@ -369,6 +369,19 @@ function App() {
     return windowUsage.slice(0, 10);
   }, [windowUsage]);
 
+  // 通用的返回主页函数 - 关闭所有子页面
+  const handleGoHome = useCallback(() => {
+    console.log('Go home clicked - closing all sub-pages');
+    setShowReportViewer(false);
+    setShowReportHistory(false);
+    setShowChart(false);
+    setShowSettings(false);
+    setShowTimelineFromSidebar(false);
+    setShowTimelineDetail(false);
+    setShowReportDialog(false);
+    setActiveTab('main');
+  }, []);
+
   // 直接使用已缓存的回调函数
 
   return (
@@ -418,13 +431,7 @@ function App() {
             setTimelineRecords([]);
           }
         }}
-        onGoHome={() => {
-          setShowChart(false);
-          setShowSettings(false);
-          setShowReportHistory(false);
-          setShowTimelineFromSidebar(false);
-          setActiveTab('main');
-        }}
+        onGoHome={handleGoHome}
         onToggleTracking={handleToggleTracking}
         onAppRanking={() => setActiveTab('ranking')}
         isTracking={isTracking}
@@ -435,20 +442,25 @@ function App() {
       <div className={`app-main-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <header className="app-header">
           <div className="header-left">
-            {(showChart || showSettings || showReportHistory || showReportViewer || showTimelineFromSidebar || activeTab === 'ranking') && (
+            {(showChart || showSettings || showReportHistory || showTimelineFromSidebar || activeTab === 'ranking') && !showReportViewer && (
               <button 
                 className="btn-back-home"
-                onClick={() => {
-                  setShowChart(false);
-                  setShowSettings(false);
-                  setShowReportHistory(false);
-                  setShowReportViewer(false);
-                  setShowTimelineFromSidebar(false);
-                  setActiveTab('main');
-                }}
+                onClick={handleGoHome}
                 title="返回主页"
               >
                 ← 返回主页
+              </button>
+            )}
+            {showReportViewer && (
+              <button 
+                className="btn-back-home"
+                onClick={() => {
+                  setShowReportViewer(false);
+                  setShowReportHistory(true);
+                }}
+                title="返回历史报告列表"
+              >
+                ← 返回
               </button>
             )}
             {!(showChart || showSettings || showReportHistory || showReportViewer || showTimelineFromSidebar || activeTab === 'ranking') && (
@@ -531,8 +543,9 @@ function App() {
             excelPath={reportPaths.excelPath}
             onClose={() => {
               setShowReportViewer(false);
-              setActiveTab('main');
+              setShowReportHistory(true);
             }}
+            onGoHome={handleGoHome}
           />
         ) : showSettings ? (
           <Settings onClose={() => {
@@ -549,15 +562,11 @@ function App() {
           />
         ) : showTimelineFromSidebar ? (
           dailySummary && timelineRecords.length > 0 ? (
-            <div className="timeline-tab-content">
-              <div className="content-panel">
-                <TimelineDetail 
-                  records={timelineRecords} 
-                  onClose={() => setShowTimelineFromSidebar(false)}
-                  asPage={true}
-                />
-              </div>
-            </div>
+            <TimelineDetail 
+              records={timelineRecords} 
+              onClose={() => setShowTimelineFromSidebar(false)}
+              asPage={true}
+            />
           ) : (
             <div className="empty-state">
               <div className="empty-icon">📭</div>

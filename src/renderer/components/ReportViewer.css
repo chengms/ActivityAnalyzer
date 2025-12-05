@@ -21,6 +21,9 @@
   background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
   color: white;
   flex-shrink: 0;
+  position: relative;
+  z-index: 100;
+  pointer-events: auto;
 }
 
 .report-viewer-header h2 {
@@ -33,6 +36,47 @@
   display: flex;
   gap: 10px;
   align-items: center;
+  position: relative;
+  z-index: 1001;
+  pointer-events: auto !important;
+}
+
+.btn-go-home {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  z-index: 1000;
+  pointer-events: auto !important;
+  -webkit-pointer-events: auto !important;
+  -moz-pointer-events: auto !important;
+  -ms-pointer-events: auto !important;
+  min-width: 80px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-go-home:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-go-home:active {
+  transform: translateY(0);
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .btn-open-excel,

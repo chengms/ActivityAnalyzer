@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import './ReportViewer.css';
 
 interface ReportViewerProps {
@@ -7,6 +7,7 @@ interface ReportViewerProps {
   htmlPath?: string;
   excelPath?: string;
   onClose: () => void;
+  onGoHome?: () => void;
 }
 
 declare global {
@@ -17,23 +18,35 @@ declare global {
   }
 }
 
-export function ReportViewer({ htmlContent, date, htmlPath, excelPath, onClose }: ReportViewerProps) {
-  const handleOpenInBrowser = () => {
+export function ReportViewer({ htmlContent, date, htmlPath, excelPath, onClose, onGoHome }: ReportViewerProps) {
+  const handleOpenInBrowser = useCallback(() => {
     if (htmlPath) {
       // 通过IPC打开文件
-      if (window.electronAPI.openReportFile) {
+      if (window.electronAPI?.openReportFile) {
         window.electronAPI.openReportFile(htmlPath);
       }
     }
-  };
+  }, [htmlPath]);
 
-  const handleOpenExcel = () => {
+  const handleOpenExcel = useCallback(() => {
     if (excelPath) {
-      if (window.electronAPI.openReportFile) {
+      if (window.electronAPI?.openReportFile) {
         window.electronAPI.openReportFile(excelPath);
       }
     }
-  };
+  }, [excelPath]);
+
+  const handleGoHome = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Home button clicked in ReportViewer');
+    if (onGoHome) {
+      console.log('Calling onGoHome callback');
+      onGoHome();
+    } else {
+      console.warn('onGoHome is not defined');
+    }
+  }, [onGoHome]);
 
   return (
     <div className="report-viewer-content-wrapper">
@@ -50,6 +63,28 @@ export function ReportViewer({ htmlContent, date, htmlPath, excelPath, onClose }
               🌐 浏览器
             </button>
           )}
+          <button 
+            className="btn-go-home" 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('Home button clicked in ReportViewer - direct handler');
+              if (onGoHome) {
+                console.log('Calling onGoHome callback');
+                onGoHome();
+              } else {
+                console.warn('onGoHome is not defined, using fallback');
+                // 如果 onGoHome 未定义，尝试直接关闭
+                if (onClose) {
+                  onClose();
+                }
+              }
+            }}
+            title="返回主页"
+            type="button"
+          >
+            🏠 主页
+          </button>
         </div>
       </div>
       <div className="report-viewer-content">
