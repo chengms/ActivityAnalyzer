@@ -87,6 +87,7 @@ export function Settings({ onClose }: SettingsProps) {
     <div className="settings-content-wrapper">
       <div className="settings-header">
         <h2>⚙️ 设置</h2>
+        <button className="btn-back" onClick={onClose}>← 返回</button>
       </div>
 
         <div className="settings-content">

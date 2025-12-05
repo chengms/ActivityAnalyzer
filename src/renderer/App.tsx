@@ -64,7 +64,8 @@ function App() {
   const [showReportHistory, setShowReportHistory] = useState<boolean>(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [showReportDialog, setShowReportDialog] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'main' | 'ranking' | 'chart' | 'settings' | 'history'>('main');
+  const [activeTab, setActiveTab] = useState<'main' | 'ranking'>('main');
+  const [showChart, setShowChart] = useState<boolean>(false);
   const lastCheckedDateRef = useRef<string>(format(new Date(), 'yyyy-MM-dd'));
 
   // 使用 useCallback 包装 loadData，确保在 selectedDate 变化时正确更新
@@ -353,13 +354,12 @@ function App() {
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        onSettings={() => setActiveTab('settings')}
+        onSettings={() => setShowSettings(true)}
         onGenerateReport={handleGenerateReport}
-        onReportHistory={() => setActiveTab('history')}
+        onReportHistory={() => setShowReportHistory(true)}
+        onViewChart={() => setShowChart(true)}
         onToggleTracking={handleToggleTracking}
         onAppRanking={() => setActiveTab('ranking')}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
         isTracking={isTracking}
         reportGenerating={reportGenerating}
         canGenerateReport={!!dailySummary}
@@ -368,14 +368,30 @@ function App() {
       <div className={`app-main-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <header className="app-header">
           <div className="header-left">
-            <div className="tracking-status">
-              <span className={`status-indicator ${isTracking ? 'active' : 'inactive'}`}>
-                {isTracking ? '●' : '○'}
-              </span>
-              <span className="status-text">
-                {isTracking ? '正在记录' : '已停止'}
-              </span>
-            </div>
+            {(showChart || showSettings || showReportHistory || activeTab === 'ranking') && (
+              <button 
+                className="btn-back-home"
+                onClick={() => {
+                  setShowChart(false);
+                  setShowSettings(false);
+                  setShowReportHistory(false);
+                  setActiveTab('main');
+                }}
+                title="返回主页"
+              >
+                ← 返回主页
+              </button>
+            )}
+            {!(showChart || showSettings || showReportHistory || activeTab === 'ranking') && (
+              <div className="tracking-status">
+                <span className={`status-indicator ${isTracking ? 'active' : 'inactive'}`}>
+                  {isTracking ? '●' : '○'}
+                </span>
+                <span className="status-text">
+                  {isTracking ? '正在记录' : '已停止'}
+                </span>
+              </div>
+            )}
           </div>
           <div className="header-right">
             <input
@@ -416,19 +432,16 @@ function App() {
         <main className="app-main">
         {loading ? (
           <div className="loading">加载中...</div>
-        ) : activeTab === 'settings' ? (
-          <Settings onClose={() => setActiveTab('main')} />
-        ) : activeTab === 'history' ? (
-          <ReportHistory
-            onSelectReport={handleViewReport}
-            onClose={() => setActiveTab('main')}
-          />
-        ) : activeTab === 'chart' ? (
+        ) : showChart ? (
           dailySummary ? (
             <div className="chart-tab-content">
               <div className="content-panel">
                 <div className="panel-header">
                   <h2>应用使用时长分布 - {selectedDate}</h2>
+                  <button className="btn-close" onClick={() => {
+                    setShowChart(false);
+                    setActiveTab('main');
+                  }}>×</button>
                 </div>
                 <ActivityChart key={selectedDate} data={dailySummary.records} />
               </div>
@@ -440,6 +453,19 @@ function App() {
               <p>选择日期没有活动记录</p>
             </div>
           )
+        ) : showSettings ? (
+          <Settings onClose={() => {
+            setShowSettings(false);
+            setActiveTab('main');
+          }} />
+        ) : showReportHistory ? (
+          <ReportHistory
+            onSelectReport={handleViewReport}
+            onClose={() => {
+              setShowReportHistory(false);
+              setActiveTab('main');
+            }}
+          />
         ) : dailySummary ? (
           <>
             <div className="summary-cards">
@@ -463,6 +489,13 @@ function App() {
                   <div className="card-label">活动记录数</div>
                   <div className="card-value">{dailySummary.records.length}</div>
                 </div>
+              </div>
+            </div>
+
+            <div className="charts-section">
+              <div className="chart-container">
+                <h2>应用使用时长分布</h2>
+                <ActivityChart key={selectedDate} data={dailySummary.records} />
               </div>
             </div>
 
