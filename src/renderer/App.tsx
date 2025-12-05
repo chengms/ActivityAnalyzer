@@ -354,10 +354,26 @@ function App() {
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        onSettings={() => setShowSettings(true)}
+        onSettings={() => {
+          setShowSettings(true);
+          setShowChart(false);
+          setShowReportHistory(false);
+          setActiveTab('main');
+        }}
         onGenerateReport={handleGenerateReport}
-        onReportHistory={() => setShowReportHistory(true)}
-        onViewChart={() => setShowChart(true)}
+        onReportHistory={() => {
+          console.log('Report history button clicked');
+          setShowReportHistory(true);
+          setShowChart(false);
+          setShowSettings(false);
+          setActiveTab('main');
+        }}
+        onViewChart={() => {
+          setShowChart(true);
+          setShowSettings(false);
+          setShowReportHistory(false);
+          setActiveTab('main');
+        }}
         onToggleTracking={handleToggleTracking}
         onAppRanking={() => setActiveTab('ranking')}
         isTracking={isTracking}
@@ -438,12 +454,22 @@ function App() {
               <div className="content-panel">
                 <div className="panel-header">
                   <h2>应用使用时长分布 - {selectedDate}</h2>
-                  <button className="btn-close" onClick={() => {
-                    setShowChart(false);
-                    setActiveTab('main');
-                  }}>×</button>
                 </div>
                 <ActivityChart key={selectedDate} data={dailySummary.records} />
+              </div>
+              <div className="content-panel" style={{ marginTop: '20px' }}>
+                <div className="panel-header">
+                  <h2>应用使用排行 - {selectedDate}</h2>
+                  <div className="ranking-summary">
+                    <span>总应用数: {appUsage.length}</span>
+                    <span>总时长: {formatDuration(appUsage.reduce((sum, app) => sum + app.totalDuration, 0))}</span>
+                  </div>
+                </div>
+                <AppUsageList 
+                  usage={appUsage} 
+                  onDelete={handleDeleteApp}
+                  selectedDate={selectedDate}
+                />
               </div>
             </div>
           ) : (

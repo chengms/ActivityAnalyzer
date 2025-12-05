@@ -103,7 +103,6 @@ export function ReportHistory({ onSelectReport, onClose }: ReportHistoryProps) {
     <div className="report-history-content-wrapper">
       <div className="report-history-header">
         <h2>📋 历史报告</h2>
-        <button className="btn-back" onClick={onClose}>← 返回</button>
       </div>
       <div className="report-history-content">
           {loading ? (
