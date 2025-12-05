@@ -64,7 +64,7 @@ function App() {
   const [showReportHistory, setShowReportHistory] = useState<boolean>(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [showReportDialog, setShowReportDialog] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'main' | 'ranking' | 'settings' | 'history'>('main');
+  const [activeTab, setActiveTab] = useState<'main' | 'ranking' | 'chart' | 'settings' | 'history'>('main');
   const lastCheckedDateRef = useRef<string>(format(new Date(), 'yyyy-MM-dd'));
 
   // 使用 useCallback 包装 loadData，确保在 selectedDate 变化时正确更新
@@ -423,6 +423,23 @@ function App() {
             onSelectReport={handleViewReport}
             onClose={() => setActiveTab('main')}
           />
+        ) : activeTab === 'chart' ? (
+          dailySummary ? (
+            <div className="chart-tab-content">
+              <div className="content-panel">
+                <div className="panel-header">
+                  <h2>应用使用时长分布 - {selectedDate}</h2>
+                </div>
+                <ActivityChart key={selectedDate} data={dailySummary.records} />
+              </div>
+            </div>
+          ) : (
+            <div className="empty-state">
+              <div className="empty-icon">📭</div>
+              <h2>暂无数据</h2>
+              <p>选择日期没有活动记录</p>
+            </div>
+          )
         ) : dailySummary ? (
           <>
             <div className="summary-cards">
@@ -446,13 +463,6 @@ function App() {
                   <div className="card-label">活动记录数</div>
                   <div className="card-value">{dailySummary.records.length}</div>
                 </div>
-              </div>
-            </div>
-
-            <div className="charts-section">
-              <div className="chart-container">
-                <h2>应用使用时长分布</h2>
-                <ActivityChart key={selectedDate} data={dailySummary.records} />
               </div>
             </div>
 

@@ -9,8 +9,8 @@ interface SidebarProps {
   onReportHistory: () => void;
   onToggleTracking: () => void;
   onAppRanking?: () => void;
-  activeTab?: 'main' | 'ranking' | 'settings' | 'history';
-  onTabChange?: (tab: 'main' | 'ranking' | 'settings' | 'history') => void;
+  activeTab?: 'main' | 'ranking' | 'chart' | 'settings' | 'history';
+  onTabChange?: (tab: 'main' | 'ranking' | 'chart' | 'settings' | 'history') => void;
   isTracking: boolean;
   reportGenerating: boolean;
   canGenerateReport: boolean;
@@ -33,45 +33,69 @@ export function Sidebar({
   return (
     <div className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
-        {!collapsed && <h2>📊 活动分析器</h2>}
-        <button
-          className="sidebar-toggle"
-          onClick={onToggleCollapse}
-          title={collapsed ? '展开侧边栏' : '折叠侧边栏'}
-        >
-          {collapsed ? '▶' : '◀'}
-        </button>
+        {!collapsed ? (
+          <>
+            <h2>📊 活动分析器</h2>
+            <button
+              className="sidebar-toggle"
+              onClick={onToggleCollapse}
+              title="折叠侧边栏"
+            >
+              ◀
+            </button>
+          </>
+        ) : (
+          <button
+            className="sidebar-toggle"
+            onClick={onToggleCollapse}
+            title="展开侧边栏"
+          >
+            ▶
+          </button>
+        )}
       </div>
       
-      {!collapsed && onTabChange && (
-        <div className="sidebar-tabs">
+      {onTabChange && (
+        <div className={`sidebar-tabs ${collapsed ? 'collapsed' : ''}`}>
           <button
             className={`sidebar-tab ${activeTab === 'main' ? 'active' : ''}`}
             onClick={() => onTabChange('main')}
+            title="主界面"
           >
             <span className="sidebar-icon">📊</span>
-            <span className="sidebar-text">主界面</span>
+            {!collapsed && <span className="sidebar-text">主界面</span>}
           </button>
           <button
             className={`sidebar-tab ${activeTab === 'ranking' ? 'active' : ''}`}
             onClick={() => onTabChange('ranking')}
+            title="应用排行"
           >
             <span className="sidebar-icon">🏆</span>
-            <span className="sidebar-text">应用排行</span>
+            {!collapsed && <span className="sidebar-text">应用排行</span>}
+          </button>
+          <button
+            className={`sidebar-tab ${activeTab === 'chart' ? 'active' : ''}`}
+            onClick={() => onTabChange('chart')}
+            title="应用使用时长分布"
+          >
+            <span className="sidebar-icon">📈</span>
+            {!collapsed && <span className="sidebar-text">使用分布</span>}
           </button>
           <button
             className={`sidebar-tab ${activeTab === 'history' ? 'active' : ''}`}
             onClick={() => onTabChange('history')}
+            title="历史报告"
           >
             <span className="sidebar-icon">📋</span>
-            <span className="sidebar-text">历史报告</span>
+            {!collapsed && <span className="sidebar-text">历史报告</span>}
           </button>
           <button
             className={`sidebar-tab ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => onTabChange('settings')}
+            title="设置"
           >
             <span className="sidebar-icon">⚙️</span>
-            <span className="sidebar-text">设置</span>
+            {!collapsed && <span className="sidebar-text">设置</span>}
           </button>
         </div>
       )}
@@ -106,27 +130,6 @@ export function Sidebar({
                 {reportGenerating ? '生成中...' : '生成报告'}
               </span>
             )}
-          </button>
-          
-          <button
-            className="sidebar-item"
-            onClick={onReportHistory}
-            title="历史报告"
-          >
-            <span className="sidebar-icon">📋</span>
-            {!collapsed && <span className="sidebar-text">历史报告</span>}
-          </button>
-        </div>
-
-        <div className="sidebar-section">
-          {!collapsed && <div className="sidebar-section-title">设置</div>}
-          <button
-            className="sidebar-item"
-            onClick={onSettings}
-            title="设置"
-          >
-            <span className="sidebar-icon">⚙️</span>
-            {!collapsed && <span className="sidebar-text">设置</span>}
           </button>
         </div>
       </div>

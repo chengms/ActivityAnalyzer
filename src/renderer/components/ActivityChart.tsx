@@ -83,7 +83,7 @@ export function ActivityChart({ data }: ActivityChartProps) {
   }
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+    <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', minHeight: '400px' }}>
       <Doughnut data={chartData} options={options} />
     </div>
   );

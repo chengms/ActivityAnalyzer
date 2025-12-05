@@ -319,12 +319,14 @@ body {
   }
 }
 
-.app-ranking-tab-content {
+.app-ranking-tab-content,
+.chart-tab-content {
   max-width: 100%;
   box-sizing: border-box;
 }
 
-.app-ranking-tab-content .panel-header {
+.app-ranking-tab-content .panel-header,
+.chart-tab-content .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -333,7 +335,8 @@ body {
   border-bottom: 2px solid #f0f0f0;
 }
 
-.app-ranking-tab-content .panel-header h2 {
+.app-ranking-tab-content .panel-header h2,
+.chart-tab-content .panel-header h2 {
   margin: 0;
   font-size: 20px;
   color: #333;
