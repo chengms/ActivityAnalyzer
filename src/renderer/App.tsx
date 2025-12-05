@@ -406,6 +406,13 @@ function App() {
             setTimelineRecords([]);
           }
         }}
+        onGoHome={() => {
+          setShowChart(false);
+          setShowSettings(false);
+          setShowReportHistory(false);
+          setShowTimelineFromSidebar(false);
+          setActiveTab('main');
+        }}
         onToggleTracking={handleToggleTracking}
         onAppRanking={() => setActiveTab('ranking')}
         isTracking={isTracking}
@@ -416,31 +423,14 @@ function App() {
       <div className={`app-main-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <header className="app-header">
           <div className="header-left">
-            {(showChart || showSettings || showReportHistory || showTimelineFromSidebar || activeTab === 'ranking') && (
-              <button 
-                className="btn-back-home"
-                onClick={() => {
-                  setShowChart(false);
-                  setShowSettings(false);
-                  setShowReportHistory(false);
-                  setShowTimelineFromSidebar(false);
-                  setActiveTab('main');
-                }}
-                title="返回主页"
-              >
-                ← 返回主页
-              </button>
-            )}
-            {!(showChart || showSettings || showReportHistory || showTimelineFromSidebar || activeTab === 'ranking') && (
-              <div className="tracking-status">
-                <span className={`status-indicator ${isTracking ? 'active' : 'inactive'}`}>
-                  {isTracking ? '●' : '○'}
-                </span>
-                <span className="status-text">
-                  {isTracking ? '正在记录' : '已停止'}
-                </span>
-              </div>
-            )}
+            <div className="tracking-status">
+              <span className={`status-indicator ${isTracking ? 'active' : 'inactive'}`}>
+                {isTracking ? '●' : '○'}
+              </span>
+              <span className="status-text">
+                {isTracking ? '正在记录' : '已停止'}
+              </span>
+            </div>
           </div>
           <div className="header-right">
             <input

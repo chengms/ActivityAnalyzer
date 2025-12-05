@@ -9,6 +9,7 @@ interface SidebarProps {
   onReportHistory: () => void;
   onViewChart?: () => void;
   onViewTimeline?: () => void;
+  onGoHome?: () => void;
   onToggleTracking: () => void;
   onAppRanking?: () => void;
   isTracking: boolean;
@@ -24,6 +25,7 @@ export function Sidebar({
   onReportHistory,
   onViewChart,
   onViewTimeline,
+  onGoHome,
   onToggleTracking,
   onAppRanking,
   isTracking,
@@ -57,6 +59,19 @@ export function Sidebar({
       
       
       <div className="sidebar-content">
+        {onGoHome && (
+          <div className="sidebar-section">
+            {!collapsed && <div className="sidebar-section-title">导航</div>}
+            <button
+              className="sidebar-item"
+              onClick={onGoHome}
+              title="返回主页"
+            >
+              <span className="sidebar-icon">🏠</span>
+              {!collapsed && <span className="sidebar-text">主页</span>}
+            </button>
+          </div>
+        )}
         <div className="sidebar-section">
           {!collapsed && <div className="sidebar-section-title">操作</div>}
           <button
