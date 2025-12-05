@@ -1,37 +1,26 @@
-.report-viewer-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
-}
-
-.report-viewer-modal {
-  background: white;
-  border-radius: 12px;
-  width: 100%;
-  max-width: 1400px;
-  max-height: 95vh;
+.report-viewer-content-wrapper {
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  height: 100%;
+  min-height: 0;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 255, 255, 0.5) inset;
+  border: 0.5px solid rgba(255, 255, 255, 0.8);
+  overflow: hidden;
 }
 
 .report-viewer-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e0e0e0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 24px 32px;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
   color: white;
-  border-radius: 12px 12px 0 0;
+  flex-shrink: 0;
 }
 
 .report-viewer-header h2 {
@@ -102,14 +91,13 @@
   flex: 1;
   overflow: hidden;
   position: relative;
-  min-height: 400px;
-  height: calc(95vh - 80px);
+  min-height: 0;
+  background: white;
 }
 
 .report-iframe {
   width: 100%;
   height: 100%;
-  min-height: 400px;
   border: none;
   display: block;
 }

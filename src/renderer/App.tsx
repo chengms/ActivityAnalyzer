@@ -435,14 +435,32 @@ function App() {
       <div className={`app-main-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <header className="app-header">
           <div className="header-left">
-            <div className="tracking-status">
-              <span className={`status-indicator ${isTracking ? 'active' : 'inactive'}`}>
-                {isTracking ? '●' : '○'}
-              </span>
-              <span className="status-text">
-                {isTracking ? '正在记录' : '已停止'}
-              </span>
-            </div>
+            {(showChart || showSettings || showReportHistory || showReportViewer || showTimelineFromSidebar || activeTab === 'ranking') && (
+              <button 
+                className="btn-back-home"
+                onClick={() => {
+                  setShowChart(false);
+                  setShowSettings(false);
+                  setShowReportHistory(false);
+                  setShowReportViewer(false);
+                  setShowTimelineFromSidebar(false);
+                  setActiveTab('main');
+                }}
+                title="返回主页"
+              >
+                ← 返回主页
+              </button>
+            )}
+            {!(showChart || showSettings || showReportHistory || showReportViewer || showTimelineFromSidebar || activeTab === 'ranking') && (
+              <div className="tracking-status">
+                <span className={`status-indicator ${isTracking ? 'active' : 'inactive'}`}>
+                  {isTracking ? '●' : '○'}
+                </span>
+                <span className="status-text">
+                  {isTracking ? '正在记录' : '已停止'}
+                </span>
+              </div>
+            )}
           </div>
           <div className="header-right">
             <input
@@ -461,15 +479,6 @@ function App() {
         />
       )}
 
-      {showReportViewer && (
-        <ReportViewer
-          htmlContent={reportContent}
-          date={reportDate}
-          htmlPath={reportPaths.htmlPath}
-          excelPath={reportPaths.excelPath}
-          onClose={() => setShowReportViewer(false)}
-        />
-      )}
 
       {showReportDialog && (
         <ReportDateRangeDialog
@@ -514,6 +523,17 @@ function App() {
               <p>选择日期没有活动记录</p>
             </div>
           )
+        ) : showReportViewer ? (
+          <ReportViewer
+            htmlContent={reportContent}
+            date={reportDate}
+            htmlPath={reportPaths.htmlPath}
+            excelPath={reportPaths.excelPath}
+            onClose={() => {
+              setShowReportViewer(false);
+              setActiveTab('main');
+            }}
+          />
         ) : showSettings ? (
           <Settings onClose={() => {
             setShowSettings(false);
