@@ -1,6 +1,18 @@
 # Release 版本发布指南
 
-## 📦 构建 Release 版本
+## 🚀 快速开始
+
+### 运行 Release 版本
+
+```bash
+# 1. 构建项目
+npm run build
+
+# 2. 运行构建后的应用
+npm start
+```
+
+## 📦 详细步骤
 
 ### 1. 安装依赖
 
@@ -15,12 +27,52 @@ npm install
 npm run build
 ```
 
+这会：
+- 编译主进程 TypeScript 代码 → `dist/main/`
+- 构建并优化渲染进程 React 应用 → `dist/renderer/`
+
 ### 3. 测试构建结果
 
 ```bash
 # 运行构建后的应用
 npm start
 ```
+
+## 🔄 开发者模式 vs Release 版本
+
+### 开发者模式（开发时使用）
+
+```bash
+# 启动开发服务器（支持热重载）
+npm run dev
+
+# 在另一个终端运行应用
+npm start
+```
+
+**特点：**
+- ✅ 代码修改后自动重新编译
+- ✅ 渲染进程支持热重载
+- ✅ 完整的调试信息
+- ⚠️ 性能较慢
+
+### Release 版本（测试/发布时使用）
+
+```bash
+# 构建项目
+npm run build
+
+# 运行构建后的应用
+npm start
+```
+
+**特点：**
+- ✅ 代码已优化和压缩
+- ✅ 性能更好
+- ✅ 日志只记录 WARN/ERROR
+- ⚠️ 需要重新构建才能看到更改
+
+> 📖 详细说明请查看 [DEVELOPMENT.md](./DEVELOPMENT.md)
 
 ## 📝 日志系统
 
