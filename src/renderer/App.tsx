@@ -459,20 +459,19 @@ function App() {
             </div>
 
             {activeTab === 'main' ? (
-              <div className="main-content-two-columns">
-                <div className="column-item">
+              <div className="content-grid">
+                <div className="content-panel">
+                  <h2>实时检测</h2>
                   <CurrentActivity isTracking={isTracking} />
                 </div>
-                <div className="column-item">
-                  <div className="content-panel">
-                    <h2>窗口使用统计</h2>
-                    <WindowUsageList 
-                      usage={windowUsage.slice(0, 10)} 
-                      onViewDetail={windowUsage.length > 10 ? handleViewTimelineDetail : undefined}
-                      onDelete={handleDeleteWindow}
-                      selectedDate={selectedDate}
-                    />
-                  </div>
+                <div className="content-panel">
+                  <h2>窗口使用统计</h2>
+                  <WindowUsageList 
+                    usage={windowUsage.slice(0, 10)} 
+                    onViewDetail={windowUsage.length > 10 ? handleViewTimelineDetail : undefined}
+                    onDelete={handleDeleteWindow}
+                    selectedDate={selectedDate}
+                  />
                 </div>
               </div>
             ) : (
