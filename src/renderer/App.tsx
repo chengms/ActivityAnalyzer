@@ -10,7 +10,6 @@ import { ReportHistory } from './components/ReportHistory';
 import { Settings } from './components/Settings';
 import { Sidebar } from './components/Sidebar';
 import { ReportDateRangeDialog } from './components/ReportDateRangeDialog';
-import { AppRankingView } from './components/AppRankingView';
 import { CurrentActivity } from './components/CurrentActivity';
 import './App.css';
 
@@ -63,7 +62,7 @@ function App() {
   const [showReportHistory, setShowReportHistory] = useState<boolean>(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [showReportDialog, setShowReportDialog] = useState<boolean>(false);
-  const [showAppRanking, setShowAppRanking] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'main' | 'ranking'>('main');
   const lastCheckedDateRef = useRef<string>(format(new Date(), 'yyyy-MM-dd'));
 
   // 使用 useCallback 包装 loadData，确保在 selectedDate 变化时正确更新
@@ -356,7 +355,9 @@ function App() {
         onGenerateReport={handleGenerateReport}
         onReportHistory={() => setShowReportHistory(true)}
         onToggleTracking={handleToggleTracking}
-        onAppRanking={() => setShowAppRanking(true)}
+        onAppRanking={() => setActiveTab('ranking')}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         isTracking={isTracking}
         reportGenerating={reportGenerating}
         canGenerateReport={!!dailySummary}
@@ -420,14 +421,6 @@ function App() {
         />
       )}
 
-      {showAppRanking && (
-        <AppRankingView
-          appUsage={appUsage}
-          selectedDate={selectedDate}
-          onDelete={handleDeleteApp}
-          onClose={() => setShowAppRanking(false)}
-        />
-      )}
 
         <main className="app-main">
         {loading ? (
@@ -465,48 +458,41 @@ function App() {
               </div>
             </div>
 
-            <div className="main-content-layout">
-              <div className="left-column">
-                <CurrentActivity isTracking={isTracking} />
-                <div className="content-panel">
-                  <h2>窗口使用统计</h2>
-                  <WindowUsageList 
-                    usage={windowUsage.slice(0, 10)} 
-                    onViewDetail={windowUsage.length > 10 ? handleViewTimelineDetail : undefined}
-                    onDelete={handleDeleteWindow}
-                    selectedDate={selectedDate}
-                  />
+            {activeTab === 'main' ? (
+              <div className="main-content-two-columns">
+                <div className="column-item">
+                  <CurrentActivity isTracking={isTracking} />
+                </div>
+                <div className="column-item">
+                  <div className="content-panel">
+                    <h2>窗口使用统计</h2>
+                    <WindowUsageList 
+                      usage={windowUsage.slice(0, 10)} 
+                      onViewDetail={windowUsage.length > 10 ? handleViewTimelineDetail : undefined}
+                      onDelete={handleDeleteWindow}
+                      selectedDate={selectedDate}
+                    />
+                  </div>
                 </div>
               </div>
-              <div className="right-column">
+            ) : (
+              <div className="app-ranking-tab-content">
                 <div className="content-panel">
-                  <div className="panel-header-with-action">
-                    <h2>应用使用排行</h2>
-                    <button 
-                      className="btn-view-all"
-                      onClick={() => setShowAppRanking(true)}
-                    >
-                      查看全部 →
-                    </button>
+                  <div className="panel-header">
+                    <h2>应用使用排行 - {selectedDate}</h2>
+                    <div className="ranking-summary">
+                      <span>总应用数: {appUsage.length}</span>
+                      <span>总时长: {formatDuration(appUsage.reduce((sum, app) => sum + app.totalDuration, 0))}</span>
+                    </div>
                   </div>
                   <AppUsageList 
-                    usage={appUsage.slice(0, 5)} 
+                    usage={appUsage} 
                     onDelete={handleDeleteApp}
                     selectedDate={selectedDate}
                   />
-                  {appUsage.length > 5 && (
-                    <div className="view-more-hint">
-                      <button 
-                        className="btn-view-more"
-                        onClick={() => setShowAppRanking(true)}
-                      >
-                        查看全部应用 ({appUsage.length} 个) →
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
-            </div>
+            )}
           </>
         ) : (
           <div className="empty-state">

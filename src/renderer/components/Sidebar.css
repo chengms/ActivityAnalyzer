@@ -69,6 +69,57 @@
   background: rgba(255, 255, 255, 0.3);
 }
 
+.sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid #e0e0e0;
+  background: #f8f9fa;
+  padding: 8px;
+  gap: 4px;
+}
+
+.sidebar.collapsed .sidebar-tabs {
+  display: none;
+}
+
+.sidebar-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #666;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.sidebar-tab:hover {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+}
+
+.sidebar-tab.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+}
+
+.sidebar-tab .sidebar-icon {
+  font-size: 16px;
+  width: 18px;
+  min-width: 18px;
+}
+
+.sidebar-tab .sidebar-text {
+  flex: 0;
+  white-space: nowrap;
+}
+
 .sidebar-content {
   flex: 1;
   overflow-y: auto;

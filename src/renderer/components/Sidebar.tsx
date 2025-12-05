@@ -9,6 +9,8 @@ interface SidebarProps {
   onReportHistory: () => void;
   onToggleTracking: () => void;
   onAppRanking?: () => void;
+  activeTab?: 'main' | 'ranking';
+  onTabChange?: (tab: 'main' | 'ranking') => void;
   isTracking: boolean;
   reportGenerating: boolean;
   canGenerateReport: boolean;
@@ -22,6 +24,8 @@ export function Sidebar({
   onReportHistory,
   onToggleTracking,
   onAppRanking,
+  activeTab = 'main',
+  onTabChange,
   isTracking,
   reportGenerating,
   canGenerateReport,
@@ -38,6 +42,25 @@ export function Sidebar({
           {collapsed ? '▶' : '◀'}
         </button>
       </div>
+      
+      {!collapsed && onTabChange && (
+        <div className="sidebar-tabs">
+          <button
+            className={`sidebar-tab ${activeTab === 'main' ? 'active' : ''}`}
+            onClick={() => onTabChange('main')}
+          >
+            <span className="sidebar-icon">📊</span>
+            <span className="sidebar-text">主界面</span>
+          </button>
+          <button
+            className={`sidebar-tab ${activeTab === 'ranking' ? 'active' : ''}`}
+            onClick={() => onTabChange('ranking')}
+          >
+            <span className="sidebar-icon">🏆</span>
+            <span className="sidebar-text">应用排行</span>
+          </button>
+        </div>
+      )}
       
       <div className="sidebar-content">
         <div className="sidebar-section">
@@ -80,16 +103,6 @@ export function Sidebar({
             {!collapsed && <span className="sidebar-text">历史报告</span>}
           </button>
           
-          {onAppRanking && (
-            <button
-              className="sidebar-item"
-              onClick={onAppRanking}
-              title="应用排行"
-            >
-              <span className="sidebar-icon">📊</span>
-              {!collapsed && <span className="sidebar-text">应用排行</span>}
-            </button>
-          )}
         </div>
 
         <div className="sidebar-section">
