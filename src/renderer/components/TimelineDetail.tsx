@@ -38,15 +38,29 @@ export function TimelineDetail({ records, onClose }: TimelineDetailProps) {
     }
   };
 
-  // 按时间排序（最早的在前）
+  // 按时间排序（最新的在前，倒序显示）
   const sortedRecords = [...records].sort((a, b) => {
-    return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+    // 先按开始时间倒序，如果开始时间相同，按结束时间倒序
+    const startTimeDiff = new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
+    if (startTimeDiff !== 0) {
+      return startTimeDiff;
+    }
+    // 如果开始时间相同，按结束时间倒序
+    if (a.endTime && b.endTime) {
+      return new Date(b.endTime).getTime() - new Date(a.endTime).getTime();
+    }
+    if (a.endTime) return -1;
+    if (b.endTime) return 1;
+    return 0;
   });
 
-  // 计算切换次数
+  // 计算切换次数（需要按时间顺序计算，所以使用原始顺序）
   let switchCount = 0;
   let lastApp = '';
-  sortedRecords.forEach(record => {
+  const chronologicalRecords = [...records].sort((a, b) => {
+    return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+  });
+  chronologicalRecords.forEach(record => {
     if (lastApp && lastApp !== record.appName) {
       switchCount++;
     }
@@ -76,7 +90,9 @@ export function TimelineDetail({ records, onClose }: TimelineDetailProps) {
           ) : (
             <div className="timeline-detail-list">
               {sortedRecords.map((record, index) => {
-                const isSwitch = index > 0 && sortedRecords[index - 1].appName !== record.appName;
+                // 由于是倒序显示，检查下一个记录（在时间上更早的记录）来判断是否是应用切换
+                const isSwitch = index < sortedRecords.length - 1 && 
+                                  sortedRecords[index + 1].appName !== record.appName;
                 return (
                   <div 
                     key={record.id || index} 
