@@ -221,3 +221,30 @@
   margin-top: 8px;
 }
 
+.timeline-detail-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: white;
+  border-radius: 12px;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.timeline-detail-page .timeline-detail-header {
+  padding: 0 0 20px 0;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.timeline-detail-page .timeline-detail-stats {
+  margin-bottom: 20px;
+}
+
+.timeline-detail-page .timeline-detail-content {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+}
+

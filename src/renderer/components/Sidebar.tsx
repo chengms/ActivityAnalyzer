@@ -8,6 +8,7 @@ interface SidebarProps {
   onGenerateReport: () => void;
   onReportHistory: () => void;
   onViewChart?: () => void;
+  onViewTimeline?: () => void;
   onToggleTracking: () => void;
   onAppRanking?: () => void;
   isTracking: boolean;
@@ -22,6 +23,7 @@ export function Sidebar({
   onGenerateReport,
   onReportHistory,
   onViewChart,
+  onViewTimeline,
   onToggleTracking,
   onAppRanking,
   isTracking,
@@ -105,6 +107,17 @@ export function Sidebar({
             <span className="sidebar-icon">📋</span>
             {!collapsed && <span className="sidebar-text">历史报告</span>}
           </button>
+          
+          {onViewTimeline && (
+            <button
+              className="sidebar-item"
+              onClick={onViewTimeline}
+              title="详细时间线"
+            >
+              <span className="sidebar-icon">📅</span>
+              {!collapsed && <span className="sidebar-text">详细时间线</span>}
+            </button>
+          )}
         </div>
 
         <div className="sidebar-section">

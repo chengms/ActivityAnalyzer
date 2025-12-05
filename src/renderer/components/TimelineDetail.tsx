@@ -6,9 +6,10 @@ import './TimelineDetail.css';
 interface TimelineDetailProps {
   records: ActivityRecord[];
   onClose: () => void;
+  asPage?: boolean; // 是否作为页面显示（而不是弹窗）
 }
 
-export function TimelineDetail({ records, onClose }: TimelineDetailProps) {
+export function TimelineDetail({ records, onClose, asPage = false }: TimelineDetailProps) {
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -67,13 +68,12 @@ export function TimelineDetail({ records, onClose }: TimelineDetailProps) {
     lastApp = record.appName;
   });
 
-  return (
-    <div className="timeline-detail-overlay" onClick={onClose}>
-      <div className="timeline-detail-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="timeline-detail-header">
-          <h2>详细时间线</h2>
-          <button className="btn-close" onClick={onClose}>×</button>
-        </div>
+  const content = (
+    <>
+      <div className="timeline-detail-header">
+        <h2>详细时间线</h2>
+        {!asPage && <button className="btn-close" onClick={onClose}>×</button>}
+      </div>
         <div className="timeline-detail-stats">
           <div className="stat-item">
             <span className="stat-label">总记录数:</span>
@@ -171,6 +171,21 @@ export function TimelineDetail({ records, onClose }: TimelineDetailProps) {
             </div>
           )}
         </div>
+    </>
+  );
+
+  if (asPage) {
+    return (
+      <div className="timeline-detail-page">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <div className="timeline-detail-overlay" onClick={onClose}>
+      <div className="timeline-detail-modal" onClick={(e) => e.stopPropagation()}>
+        {content}
       </div>
     </div>
   );

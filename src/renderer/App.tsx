@@ -56,6 +56,7 @@ function App() {
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [isTracking, setIsTracking] = useState<boolean>(true);
   const [showTimelineDetail, setShowTimelineDetail] = useState<boolean>(false);
+  const [showTimelineFromSidebar, setShowTimelineFromSidebar] = useState<boolean>(false);
   const [timelineRecords, setTimelineRecords] = useState<any[]>([]);
   const [showReportViewer, setShowReportViewer] = useState<boolean>(false);
   const [reportContent, setReportContent] = useState<string>('');
@@ -96,7 +97,16 @@ function App() {
   // 当 selectedDate 变化时，重新加载数据
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    // 如果时间线页面正在显示，重新加载时间线数据
+    if (showTimelineFromSidebar && window.electronAPI.getActivityTimeline) {
+      window.electronAPI.getActivityTimeline(selectedDate).then(records => {
+        setTimelineRecords(records);
+      }).catch(error => {
+        console.error('Error loading timeline:', error);
+        setTimelineRecords([]);
+      });
+    }
+  }, [loadData, selectedDate, showTimelineFromSidebar]);
   
   // 监听打开设置事件
   useEffect(() => {
@@ -358,6 +368,7 @@ function App() {
           setShowSettings(true);
           setShowChart(false);
           setShowReportHistory(false);
+          setShowTimelineFromSidebar(false);
           setActiveTab('main');
         }}
         onGenerateReport={handleGenerateReport}
@@ -366,13 +377,34 @@ function App() {
           setShowReportHistory(true);
           setShowChart(false);
           setShowSettings(false);
+          setShowTimelineFromSidebar(false);
           setActiveTab('main');
         }}
         onViewChart={() => {
           setShowChart(true);
           setShowSettings(false);
           setShowReportHistory(false);
+          setShowTimelineFromSidebar(false);
           setActiveTab('main');
+        }}
+        onViewTimeline={async () => {
+          setShowTimelineFromSidebar(true);
+          setShowChart(false);
+          setShowSettings(false);
+          setShowReportHistory(false);
+          setActiveTab('main');
+          // 加载时间线数据
+          if (window.electronAPI.getActivityTimeline) {
+            try {
+              const records = await window.electronAPI.getActivityTimeline(selectedDate);
+              setTimelineRecords(records);
+            } catch (error) {
+              console.error('Error loading timeline:', error);
+              setTimelineRecords([]);
+            }
+          } else {
+            setTimelineRecords([]);
+          }
         }}
         onToggleTracking={handleToggleTracking}
         onAppRanking={() => setActiveTab('ranking')}
@@ -384,13 +416,14 @@ function App() {
       <div className={`app-main-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <header className="app-header">
           <div className="header-left">
-            {(showChart || showSettings || showReportHistory || activeTab === 'ranking') && (
+            {(showChart || showSettings || showReportHistory || showTimelineFromSidebar || activeTab === 'ranking') && (
               <button 
                 className="btn-back-home"
                 onClick={() => {
                   setShowChart(false);
                   setShowSettings(false);
                   setShowReportHistory(false);
+                  setShowTimelineFromSidebar(false);
                   setActiveTab('main');
                 }}
                 title="返回主页"
@@ -398,7 +431,7 @@ function App() {
                 ← 返回主页
               </button>
             )}
-            {!(showChart || showSettings || showReportHistory || activeTab === 'ranking') && (
+            {!(showChart || showSettings || showReportHistory || showTimelineFromSidebar || activeTab === 'ranking') && (
               <div className="tracking-status">
                 <span className={`status-indicator ${isTracking ? 'active' : 'inactive'}`}>
                   {isTracking ? '●' : '○'}
@@ -492,6 +525,24 @@ function App() {
               setActiveTab('main');
             }}
           />
+        ) : showTimelineFromSidebar ? (
+          dailySummary && timelineRecords.length > 0 ? (
+            <div className="timeline-tab-content">
+              <div className="content-panel">
+                <TimelineDetail 
+                  records={timelineRecords} 
+                  onClose={() => setShowTimelineFromSidebar(false)}
+                  asPage={true}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="empty-state">
+              <div className="empty-icon">📭</div>
+              <h2>暂无数据</h2>
+              <p>选择日期没有活动记录</p>
+            </div>
+          )
         ) : dailySummary ? (
           <>
             <div className="summary-cards">
