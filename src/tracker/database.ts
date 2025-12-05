@@ -16,6 +16,9 @@ export interface ActivityRecord {
   processId?: number; // 进程ID (PID)
   architecture?: string; // 进程架构（32位/64位）
   commandLine?: string; // 命令行参数
+  // 标签页信息
+  tabTitle?: string; // 标签页标题（如浏览器标签页）
+  tabUrl?: string; // 标签页URL（如果可用）
 }
 
 export interface AppUsage {
@@ -104,6 +107,14 @@ export class Database {
         this.db.exec('ALTER TABLE activities ADD COLUMN commandLine TEXT');
         console.log('[Database] Added commandLine column');
       }
+      if (!columnNames.includes('tabTitle')) {
+        this.db.exec('ALTER TABLE activities ADD COLUMN tabTitle TEXT');
+        console.log('[Database] Added tabTitle column');
+      }
+      if (!columnNames.includes('tabUrl')) {
+        this.db.exec('ALTER TABLE activities ADD COLUMN tabUrl TEXT');
+        console.log('[Database] Added tabUrl column');
+      }
 
       // 重新查询表结构以获取最新的列信息（因为可能刚刚添加了新列）
       const updatedTableInfo = this.db.prepare("PRAGMA table_info(activities)").all() as Array<{ name: string }>;
@@ -128,9 +139,10 @@ export class Database {
     const stmt = this.db.prepare(`
       INSERT INTO activities (
         appName, windowTitle, startTime, endTime, duration, date,
-        processPath, processName, processId, architecture, commandLine
+        processPath, processName, processId, architecture, commandLine,
+        tabTitle, tabUrl
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     const result = stmt.run(
@@ -144,7 +156,9 @@ export class Database {
       record.processName || null,
       record.processId || null,
       record.architecture || null,
-      record.commandLine || null
+      record.commandLine || null,
+      record.tabTitle || null,
+      record.tabUrl || null
     );
     
     return (result.lastInsertRowid as number) || null;

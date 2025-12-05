@@ -8,6 +8,7 @@ interface SidebarProps {
   onGenerateReport: () => void;
   onReportHistory: () => void;
   onToggleTracking: () => void;
+  onAppRanking?: () => void;
   isTracking: boolean;
   reportGenerating: boolean;
   canGenerateReport: boolean;
@@ -20,6 +21,7 @@ export function Sidebar({
   onGenerateReport,
   onReportHistory,
   onToggleTracking,
+  onAppRanking,
   isTracking,
   reportGenerating,
   canGenerateReport,
@@ -77,6 +79,17 @@ export function Sidebar({
             <span className="sidebar-icon">📋</span>
             {!collapsed && <span className="sidebar-text">历史报告</span>}
           </button>
+          
+          {onAppRanking && (
+            <button
+              className="sidebar-item"
+              onClick={onAppRanking}
+              title="应用排行"
+            >
+              <span className="sidebar-icon">📊</span>
+              {!collapsed && <span className="sidebar-text">应用排行</span>}
+            </button>
+          )}
         </div>
 
         <div className="sidebar-section">

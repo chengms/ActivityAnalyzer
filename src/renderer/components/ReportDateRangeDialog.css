@@ -126,10 +126,17 @@
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s;
+  cursor: pointer;
+}
+
+.date-input:hover {
+  border-color: #667eea;
+  background-color: #f8f9fa;
 }
 
 .date-input:focus {
   border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
 }
 
 .time-input {
@@ -141,10 +148,20 @@
   outline: none;
   transition: border-color 0.2s;
   font-family: monospace;
+  cursor: pointer;
+  /* 优化点击响应 */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.time-input:hover {
+  border-color: #667eea;
+  background-color: #f8f9fa;
 }
 
 .time-input:focus {
   border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
 }
 
 .report-dialog-actions {
@@ -178,11 +195,30 @@
 .btn-confirm {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  position: relative;
 }
 
-.btn-confirm:hover {
+.btn-confirm:hover:not(:disabled) {
   opacity: 0.9;
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.btn-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.report-dialog-hint {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+  text-align: center;
+}
+
+.report-dialog-hint small {
+  color: #999;
+  font-size: 12px;
 }
 

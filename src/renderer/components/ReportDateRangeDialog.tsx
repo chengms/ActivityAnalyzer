@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { format } from 'date-fns';
 import './ReportDateRangeDialog.css';
 
@@ -14,9 +14,13 @@ export function ReportDateRangeDialog({ defaultDate, onConfirm, onCancel }: Repo
   const [endDate, setEndDate] = useState<string>(defaultDate);
   const [endTime, setEndTime] = useState<string>('23:59:59'); // 使用 HH:MM:SS 格式以支持秒选择
   const [useDateRange, setUseDateRange] = useState<boolean>(false);
+  const startTimeInputRef = useRef<HTMLInputElement>(null);
+  const endTimeInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // 不立即关闭对话框，让用户看到生成过程
+    // 对话框会在报告生成完成后由父组件关闭
     if (useDateRange) {
       // 验证日期时间
       // 确保时间格式为 HH:MM:SS
@@ -56,6 +60,7 @@ export function ReportDateRangeDialog({ defaultDate, onConfirm, onCancel }: Repo
       const endDateTime = `${defaultDate}T23:59:59`;
       onConfirm(startDateTime, endDateTime);
     }
+    // 注意：对话框由父组件在报告生成完成后关闭
   };
 
   return (
@@ -102,9 +107,18 @@ export function ReportDateRangeDialog({ defaultDate, onConfirm, onCancel }: Repo
                     className="date-input"
                   />
                   <input
+                    ref={startTimeInputRef}
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
+                    onClick={(e) => {
+                      // 立即显示时间选择器
+                      e.currentTarget.showPicker?.();
+                    }}
+                    onFocus={(e) => {
+                      // 聚焦时也显示选择器
+                      e.currentTarget.showPicker?.();
+                    }}
                     step="1"
                     className="time-input"
                   />
@@ -121,9 +135,18 @@ export function ReportDateRangeDialog({ defaultDate, onConfirm, onCancel }: Repo
                     className="date-input"
                   />
                   <input
+                    ref={endTimeInputRef}
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
+                    onClick={(e) => {
+                      // 立即显示时间选择器
+                      e.currentTarget.showPicker?.();
+                    }}
+                    onFocus={(e) => {
+                      // 聚焦时也显示选择器
+                      e.currentTarget.showPicker?.();
+                    }}
                     step="1"
                     className="time-input"
                   />
@@ -140,6 +163,11 @@ export function ReportDateRangeDialog({ defaultDate, onConfirm, onCancel }: Repo
               生成报告
             </button>
           </div>
+          {useDateRange && (
+            <div className="report-dialog-hint">
+              <small>💡 提示：点击时间输入框可立即打开时间选择器</small>
+            </div>
+          )}
         </form>
       </div>
     </div>

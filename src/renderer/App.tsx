@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 import { DailySummary, AppUsage, WindowUsage } from '../tracker/database';
 import { ActivityChart } from './components/ActivityChart';
@@ -10,6 +10,8 @@ import { ReportHistory } from './components/ReportHistory';
 import { Settings } from './components/Settings';
 import { Sidebar } from './components/Sidebar';
 import { ReportDateRangeDialog } from './components/ReportDateRangeDialog';
+import { AppRankingView } from './components/AppRankingView';
+import { CurrentActivity } from './components/CurrentActivity';
 import './App.css';
 
 declare global {
@@ -61,12 +63,41 @@ function App() {
   const [showReportHistory, setShowReportHistory] = useState<boolean>(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [showReportDialog, setShowReportDialog] = useState<boolean>(false);
+  const [showAppRanking, setShowAppRanking] = useState<boolean>(false);
   const lastCheckedDateRef = useRef<string>(format(new Date(), 'yyyy-MM-dd'));
 
+  // 使用 useCallback 包装 loadData，确保在 selectedDate 变化时正确更新
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      console.log(`[App] Loading data for date: ${selectedDate}`);
+      const summary = await window.electronAPI.getDailySummary(selectedDate);
+      setDailySummary(summary);
+
+      // 获取窗口使用汇总
+      if (window.electronAPI.getWindowUsage) {
+        const windowData = await window.electronAPI.getWindowUsage(selectedDate);
+        setWindowUsage(windowData);
+      }
+
+      // 获取当天的应用使用情况（默认只显示当天）
+      const usage = await window.electronAPI.getAppUsage(selectedDate, selectedDate);
+      setAppUsage(usage);
+      console.log(`[App] Data loaded successfully for date: ${selectedDate}`);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedDate]);
+
+  // 当 selectedDate 变化时，重新加载数据
   useEffect(() => {
     loadData();
-    
-    // 监听打开设置事件
+  }, [loadData]);
+  
+  // 监听打开设置事件
+  useEffect(() => {
     if (window.electronAPI.onOpenSettings) {
       const removeListener = window.electronAPI.onOpenSettings(() => {
         setShowSettings(true);
@@ -75,7 +106,7 @@ function App() {
         if (removeListener) removeListener();
       };
     }
-  }, [selectedDate]);
+  }, []);
 
   // 自动检测日期变化，新一天时自动跳转到当前日期
   useEffect(() => {
@@ -130,35 +161,15 @@ function App() {
     }
   }, []);
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const summary = await window.electronAPI.getDailySummary(selectedDate);
-      setDailySummary(summary);
-
-      // 获取窗口使用汇总
-      if (window.electronAPI.getWindowUsage) {
-        const windowData = await window.electronAPI.getWindowUsage(selectedDate);
-        setWindowUsage(windowData);
-      }
-
-      // 获取当天的应用使用情况（默认只显示当天）
-      const usage = await window.electronAPI.getAppUsage(selectedDate, selectedDate);
-      setAppUsage(usage);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleGenerateReport = () => {
     // 显示时间段选择对话框
     setShowReportDialog(true);
   };
 
   const handleConfirmReport = async (startDateTime: string, endDateTime: string) => {
+    // 先关闭对话框，立即响应用户操作
     setShowReportDialog(false);
+    // 然后开始生成报告（异步，不阻塞UI）
     setReportGenerating(true);
     try {
       // 提取日期部分用于显示
@@ -230,11 +241,13 @@ function App() {
           }
         }
       } else {
-        alert('报告生成失败');
+        const errorMsg = result.error || '未知错误';
+        alert(`报告生成失败\n\n${errorMsg}`);
       }
     } catch (error) {
       console.error('Error generating report:', error);
-      alert('报告生成失败');
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      alert(`报告生成失败\n\n${errorMsg}`);
     } finally {
       setReportGenerating(false);
     }
@@ -343,6 +356,7 @@ function App() {
         onGenerateReport={handleGenerateReport}
         onReportHistory={() => setShowReportHistory(true)}
         onToggleTracking={handleToggleTracking}
+        onAppRanking={() => setShowAppRanking(true)}
         isTracking={isTracking}
         reportGenerating={reportGenerating}
         canGenerateReport={!!dailySummary}
@@ -406,6 +420,15 @@ function App() {
         />
       )}
 
+      {showAppRanking && (
+        <AppRankingView
+          appUsage={appUsage}
+          selectedDate={selectedDate}
+          onDelete={handleDeleteApp}
+          onClose={() => setShowAppRanking(false)}
+        />
+      )}
+
         <main className="app-main">
         {loading ? (
           <div className="loading">加载中...</div>
@@ -438,27 +461,50 @@ function App() {
             <div className="charts-section">
               <div className="chart-container">
                 <h2>应用使用时长分布</h2>
-                <ActivityChart data={dailySummary.records} />
+                <ActivityChart key={selectedDate} data={dailySummary.records} />
               </div>
             </div>
 
-            <div className="content-grid">
-              <div className="content-panel">
-                <h2>应用使用排行</h2>
-                <AppUsageList 
-                  usage={appUsage.slice(0, 10)} 
-                  onDelete={handleDeleteApp}
-                  selectedDate={selectedDate}
-                />
+            <div className="main-content-layout">
+              <div className="left-column">
+                <CurrentActivity isTracking={isTracking} />
+                <div className="content-panel">
+                  <h2>窗口使用统计</h2>
+                  <WindowUsageList 
+                    usage={windowUsage.slice(0, 10)} 
+                    onViewDetail={windowUsage.length > 10 ? handleViewTimelineDetail : undefined}
+                    onDelete={handleDeleteWindow}
+                    selectedDate={selectedDate}
+                  />
+                </div>
               </div>
-              <div className="content-panel">
-                <h2>窗口使用统计</h2>
-                <WindowUsageList 
-                  usage={windowUsage} 
-                  onViewDetail={handleViewTimelineDetail}
-                  onDelete={handleDeleteWindow}
-                  selectedDate={selectedDate}
-                />
+              <div className="right-column">
+                <div className="content-panel">
+                  <div className="panel-header-with-action">
+                    <h2>应用使用排行</h2>
+                    <button 
+                      className="btn-view-all"
+                      onClick={() => setShowAppRanking(true)}
+                    >
+                      查看全部 →
+                    </button>
+                  </div>
+                  <AppUsageList 
+                    usage={appUsage.slice(0, 5)} 
+                    onDelete={handleDeleteApp}
+                    selectedDate={selectedDate}
+                  />
+                  {appUsage.length > 5 && (
+                    <div className="view-more-hint">
+                      <button 
+                        className="btn-view-more"
+                        onClick={() => setShowAppRanking(true)}
+                      >
+                        查看全部应用 ({appUsage.length} 个) →
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </>

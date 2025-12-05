@@ -4,6 +4,9 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { execSync } from 'child_process';
+// OCR和截图功能（可选，延迟加载）
+// import screenshot from 'screenshot-desktop';
+// import { createWorker } from 'tesseract.js';
 
 interface ProcessInfo {
   appName: string;
@@ -23,6 +26,8 @@ export class ActivityTracker {
   private currentProcessInfo: ProcessInfo | null = null; // 当前进程详细信息
   private currentStartTime: Date | null = null;
   private currentRecordId: number | null = null;
+  private currentTabTitle: string | null = null; // 当前标签页标题
+  private currentTabUrl: string | null = null; // 当前标签页URL
   private checkInterval: number = 5000; // 默认5秒检查一次
   private lastSaveTime: Date | null = null; // 上次保存时间
   private saveInterval: number = 60000; // 每60秒保存一次当前活动（即使没有切换）
@@ -175,10 +180,42 @@ export class ActivityTracker {
           // 但如果 lastCheckTime 为 null 且这是第一次检查，使用 checkTime 作为开始时间
           this.currentStartTime = this.lastCheckTime || checkTime;
           this.currentRecordId = null;
+          
+          // 尝试获取标签页信息（异步，不阻塞主流程）
+          this.getTabInfo(processInfo.appName, activeWindow).then(tabInfo => {
+            if (tabInfo) {
+              this.currentTabTitle = tabInfo.title;
+              this.currentTabUrl = tabInfo.url;
+              console.log(`[TabInfo] Got tab: ${tabInfo.title || 'N/A'}`);
+            }
+          }).catch(err => {
+            console.error('[TabInfo] Error getting tab info:', err);
+          });
+          
           console.log(`[Activity] Started tracking: ${processInfo.appName} - ${activeWindow} (PID: ${processInfo.processId || 'N/A'})`);
         } finally {
           // 释放保存锁
           this.isSaving = false;
+        }
+      } else {
+        // 即使应用和窗口没变，也尝试更新标签页信息（对于浏览器，标签页可能切换了）
+        // 只在浏览器应用中检查，避免频繁OCR
+        if (this.isBrowserApp(processInfo.appName)) {
+          this.getTabInfo(processInfo.appName, activeWindow).then(tabInfo => {
+            if (tabInfo && (tabInfo.title !== this.currentTabTitle || tabInfo.url !== this.currentTabUrl)) {
+              // 标签页切换了，保存当前活动并开始新记录
+              if (this.currentTabTitle) {
+                this.saveCurrentActivity();
+              }
+              this.currentTabTitle = tabInfo.title;
+              this.currentTabUrl = tabInfo.url;
+              this.currentStartTime = new Date();
+              this.currentRecordId = null;
+              console.log(`[TabInfo] Tab switched: ${tabInfo.title || 'N/A'}`);
+            }
+          }).catch(err => {
+            // 静默失败，不影响主流程
+          });
         }
       }
       
@@ -223,6 +260,9 @@ export class ActivityTracker {
       processId: this.currentProcessInfo?.processId,
       architecture: this.currentProcessInfo?.architecture,
       commandLine: this.currentProcessInfo?.commandLine,
+      // 添加标签页信息
+      tabTitle: this.currentTabTitle || undefined,
+      tabUrl: this.currentTabUrl || undefined,
     };
 
     try {
@@ -286,6 +326,9 @@ export class ActivityTracker {
           processId: this.currentProcessInfo?.processId,
           architecture: this.currentProcessInfo?.architecture,
           commandLine: this.currentProcessInfo?.commandLine,
+          // 添加标签页信息
+          tabTitle: this.currentTabTitle || undefined,
+          tabUrl: this.currentTabUrl || undefined,
         };
         const recordId = this.database.insertActivity(record);
         this.currentRecordId = recordId || null;
@@ -888,6 +931,181 @@ try {
 
   private getDateString(date: Date): string {
     return date.toISOString().split('T')[0];
+  }
+
+  // 判断是否为浏览器应用
+  private isBrowserApp(appName: string): boolean {
+    const browserNames = ['Chrome', 'Microsoft Edge', 'Firefox', 'Opera', 'Brave', 'Vivaldi', 'Safari'];
+    return browserNames.some(name => appName.toLowerCase().includes(name.toLowerCase()));
+  }
+
+  // 获取标签页信息（尝试多种方法）
+  private async getTabInfo(appName: string, windowTitle: string): Promise<{ title: string | null; url: string | null } | null> {
+    // 只对浏览器应用尝试获取标签页信息
+    if (!this.isBrowserApp(appName)) {
+      return null;
+    }
+
+    try {
+      // 方法1: 尝试从窗口标题提取标签页信息（浏览器窗口标题通常包含标签页标题）
+      const tabTitleFromWindow = this.extractTabTitleFromWindow(windowTitle, appName);
+      if (tabTitleFromWindow) {
+        return { title: tabTitleFromWindow, url: null };
+      }
+
+      // 方法2: 尝试使用Windows UI Automation API获取标签页
+      const uiaResult = await this.getTabInfoViaUIA(appName);
+      if (uiaResult) {
+        return uiaResult;
+      }
+
+      // 方法3: 使用OCR识别标签页（作为最后手段，较慢）
+      // 注意：OCR会消耗较多资源，只在必要时使用
+      // 这里暂时注释掉，如果需要可以启用
+      // const ocrResult = await this.getTabInfoViaOCR();
+      // if (ocrResult) {
+      //   return ocrResult;
+      // }
+
+      return null;
+    } catch (error) {
+      console.error('[TabInfo] Error getting tab info:', error);
+      return null;
+    }
+  }
+
+  // 从窗口标题提取标签页标题
+  private extractTabTitleFromWindow(windowTitle: string, appName: string): string | null {
+    if (!windowTitle || windowTitle === 'Unknown Window') {
+      return null;
+    }
+
+    // 浏览器窗口标题格式通常是: "标签页标题 - 浏览器名称" 或 "标签页标题 | 浏览器名称"
+    // 例如: "GitHub - Google Chrome" 或 "百度一下，你就知道 | Microsoft Edge"
+    const separators = [' - ', ' | ', ' — '];
+    
+    for (const sep of separators) {
+      if (windowTitle.includes(sep)) {
+        const parts = windowTitle.split(sep);
+        if (parts.length >= 2) {
+          const possibleTitle = parts[0].trim();
+          const possibleApp = parts[parts.length - 1].trim();
+          
+          // 如果最后一部分是浏览器名称，则第一部分是标签页标题
+          if (this.isBrowserApp(possibleApp) || possibleApp.toLowerCase().includes(appName.toLowerCase())) {
+            return possibleTitle || null;
+          }
+        }
+      }
+    }
+
+    // 如果窗口标题不包含分隔符，可能整个标题就是标签页标题（新标签页等）
+    // 但需要排除明显是浏览器名称的情况
+    if (!this.isBrowserApp(windowTitle)) {
+      return windowTitle;
+    }
+
+    return null;
+  }
+
+  // 使用Windows UI Automation API获取标签页信息
+  private async getTabInfoViaUIA(appName: string): Promise<{ title: string | null; url: string | null } | null> {
+    if (process.platform !== 'win32') return null;
+
+    try {
+      // 使用PowerShell调用Windows UI Automation API
+      // 注意：这需要应用支持UI Automation，不是所有浏览器都完全支持
+      const psScript = `
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+using System.Windows.Automation;
+
+public class TabInfo {
+  public static string GetActiveTabTitle() {
+    try {
+      AutomationElement root = AutomationElement.RootElement;
+      AutomationElement focusedElement = root.FindFirst(
+        TreeScope.Subtree,
+        new PropertyCondition(AutomationElement.HasKeyboardFocusProperty, true)
+      );
+      
+      if (focusedElement != null) {
+        // 尝试查找标签页控件
+        AutomationElement tabItem = focusedElement.FindFirst(
+          TreeScope.Ancestors | TreeScope.Descendants,
+          new AndCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem),
+            new PropertyCondition(AutomationElement.IsSelectedProperty, true)
+          )
+        );
+        
+        if (tabItem != null) {
+          return tabItem.Current.Name;
+        }
+      }
+    } catch {}
+    return "";
+  }
+}
+"@
+try {
+  $title = [TabInfo]::GetActiveTabTitle()
+  if ($title) {
+    Write-Output $title
+  }
+} catch {
+  Write-Output ""
+}
+`;
+
+      const result = execSync(
+        `powershell -ExecutionPolicy Bypass -NoProfile -Command "${psScript}"`,
+        { encoding: 'utf-8', timeout: 2000, stdio: ['pipe', 'pipe', 'ignore'] as const }
+      );
+
+      const title = result.toString().trim();
+      if (title) {
+        return { title, url: null };
+      }
+    } catch (error) {
+      // UI Automation可能不可用或失败，静默失败
+    }
+
+    return null;
+  }
+
+  // 使用OCR识别标签页（备用方案，较慢）
+  // 注意：OCR功能需要额外安装依赖，暂时注释掉
+  // 如果需要启用，取消注释并安装依赖：npm install screenshot-desktop tesseract.js
+  private async getTabInfoViaOCR(): Promise<{ title: string | null; url: string | null } | null> {
+    // OCR功能暂时禁用，因为需要额外的依赖和资源
+    // 如果需要启用，可以：
+    // 1. 安装依赖：npm install screenshot-desktop tesseract.js
+    // 2. 取消注释上面的import语句
+    // 3. 实现OCR逻辑
+    return null;
+    
+    /* 
+    try {
+      // 初始化OCR worker（延迟初始化，只初始化一次）
+      if (!this.ocrWorker) {
+        const { createWorker } = await import('tesseract.js');
+        this.ocrWorker = await createWorker('chi_sim+eng'); // 支持中文和英文
+      }
+
+      // 截取活动窗口的标签页区域
+      const screenshot = await import('screenshot-desktop');
+      const screenshots = await screenshot.default({ screen: 0 });
+      // 这里需要根据浏览器类型裁剪标签页区域
+      // 暂时返回null，如果需要可以完善
+      
+      return null;
+    } catch (error) {
+      console.error('[TabInfo] OCR error:', error);
+      return null;
+    }
+    */
   }
 }
 

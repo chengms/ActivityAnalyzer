@@ -11,24 +11,42 @@ export class Reporter {
     this.database = database;
   }
 
-  async generateDailyReport(date: string): Promise<{ success: boolean; path: string; htmlContent?: string; htmlPath?: string; excelPath?: string }> {
+  async generateDailyReport(date: string): Promise<{ success: boolean; path: string; htmlContent?: string; htmlPath?: string; excelPath?: string; error?: string }> {
     try {
       const summary = this.database.getDailySummary(date);
       if (!summary) {
-        return { success: false, path: '' };
+        console.error(`[Report] No data found for date: ${date}`);
+        return { success: false, path: '', error: `所选日期 ${date} 没有活动记录` };
       }
 
       // 确保报告目录存在
       const reportsDir = path.join(app.getPath('userData'), 'reports');
-      if (!fs.existsSync(reportsDir)) {
-        fs.mkdirSync(reportsDir, { recursive: true });
+      try {
+        if (!fs.existsSync(reportsDir)) {
+          fs.mkdirSync(reportsDir, { recursive: true });
+        }
+      } catch (dirError) {
+        console.error('[Report] Error creating reports directory:', dirError);
+        return { success: false, path: '', error: `无法创建报告目录: ${dirError}` };
       }
 
       // 生成 Excel 报告
-      const excelPath = await this.generateExcelReport(summary, reportsDir);
+      let excelPath: string;
+      try {
+        excelPath = await this.generateExcelReport(summary, reportsDir);
+      } catch (excelError) {
+        console.error('[Report] Error generating Excel report:', excelError);
+        return { success: false, path: '', error: `Excel报告生成失败: ${excelError}` };
+      }
       
       // 生成 HTML 报告
-      const htmlPath = await this.generateHTMLReport(summary, reportsDir);
+      let htmlPath: string;
+      try {
+        htmlPath = await this.generateHTMLReport(summary, reportsDir);
+      } catch (htmlError) {
+        console.error('[Report] Error generating HTML report:', htmlError);
+        return { success: false, path: '', error: `HTML报告生成失败: ${htmlError}` };
+      }
       
       // 获取HTML内容用于显示
       const htmlContent = this.generateHTMLContent(summary);
@@ -41,22 +59,29 @@ export class Reporter {
         excelPath,
       };
     } catch (error) {
-      console.error('Error generating report:', error);
-      return { success: false, path: '' };
+      console.error('[Report] Error generating report:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, path: '', error: `报告生成失败: ${errorMessage}` };
     }
   }
 
-  async generateDateRangeReport(startDateTime: string, endDateTime: string): Promise<{ success: boolean; path: string; htmlContent?: string; htmlPath?: string; excelPath?: string }> {
+  async generateDateRangeReport(startDateTime: string, endDateTime: string): Promise<{ success: boolean; path: string; htmlContent?: string; htmlPath?: string; excelPath?: string; error?: string }> {
     try {
       const summary = this.database.getSummaryByDateRange(startDateTime, endDateTime);
       if (!summary) {
-        return { success: false, path: '' };
+        console.error(`[Report] No data found for date range: ${startDateTime} to ${endDateTime}`);
+        return { success: false, path: '', error: `所选时间段没有活动记录` };
       }
 
       // 确保报告目录存在
       const reportsDir = path.join(app.getPath('userData'), 'reports');
-      if (!fs.existsSync(reportsDir)) {
-        fs.mkdirSync(reportsDir, { recursive: true });
+      try {
+        if (!fs.existsSync(reportsDir)) {
+          fs.mkdirSync(reportsDir, { recursive: true });
+        }
+      } catch (dirError) {
+        console.error('[Report] Error creating reports directory:', dirError);
+        return { success: false, path: '', error: `无法创建报告目录: ${dirError}` };
       }
 
       // 生成文件名（使用日期范围，移除时间部分中的特殊字符）
@@ -79,10 +104,22 @@ export class Reporter {
       }
 
       // 生成 Excel 报告
-      const excelPath = await this.generateExcelReport(summary, reportsDir, dateRangeStr);
+      let excelPath: string;
+      try {
+        excelPath = await this.generateExcelReport(summary, reportsDir, dateRangeStr);
+      } catch (excelError) {
+        console.error('[Report] Error generating Excel report:', excelError);
+        return { success: false, path: '', error: `Excel报告生成失败: ${excelError}` };
+      }
       
       // 生成 HTML 报告
-      const htmlPath = await this.generateHTMLReport(summary, reportsDir, dateRangeStr);
+      let htmlPath: string;
+      try {
+        htmlPath = await this.generateHTMLReport(summary, reportsDir, dateRangeStr);
+      } catch (htmlError) {
+        console.error('[Report] Error generating HTML report:', htmlError);
+        return { success: false, path: '', error: `HTML报告生成失败: ${htmlError}` };
+      }
       
       // 获取HTML内容用于显示
       const htmlContent = this.generateHTMLContent(summary);
@@ -95,8 +132,9 @@ export class Reporter {
         excelPath,
       };
     } catch (error) {
-      console.error('Error generating date range report:', error);
-      return { success: false, path: '' };
+      console.error('[Report] Error generating date range report:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, path: '', error: `报告生成失败: ${errorMessage}` };
     }
   }
 
@@ -177,7 +215,14 @@ export class Reporter {
       ? `活动报告_${dateRangeStr}.xlsx`
       : `活动报告_${summary.date}.xlsx`;
     const filePath = path.join(reportsDir, fileName);
-    XLSX.writeFile(workbook, filePath);
+    
+    try {
+      XLSX.writeFile(workbook, filePath);
+      console.log(`[Report] Excel file saved: ${filePath}`);
+    } catch (writeError) {
+      console.error('[Report] Error writing Excel file:', writeError);
+      throw new Error(`无法写入Excel文件: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
+    }
 
     return filePath;
   }
@@ -202,7 +247,14 @@ export class Reporter {
       ? `活动报告_${dateRangeStr}.html`
       : `活动报告_${summary.date}.html`;
     const filePath = path.join(reportsDir, fileName);
-    fs.writeFileSync(filePath, html, 'utf-8');
+    
+    try {
+      fs.writeFileSync(filePath, html, 'utf-8');
+      console.log(`[Report] HTML file saved: ${filePath}`);
+    } catch (writeError) {
+      console.error('[Report] Error writing HTML file:', writeError);
+      throw new Error(`无法写入HTML文件: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
+    }
 
     return filePath;
   }

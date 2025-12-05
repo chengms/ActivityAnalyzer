@@ -131,6 +131,19 @@ export function TimelineDetail({ records, onClose }: TimelineDetailProps) {
                             : record.commandLine}
                         </div>
                       )}
+                      {/* 标签页信息 */}
+                      {record.tabTitle && (
+                        <div className="detail-tab" title={record.tabUrl || ''}>
+                          🏷️ {record.tabTitle}
+                          {record.tabUrl && (
+                            <span className="tab-url" title={record.tabUrl}>
+                              {record.tabUrl.length > 50 
+                                ? record.tabUrl.substring(0, 50) + '...' 
+                                : record.tabUrl}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div className="detail-duration">{formatDuration(record.duration)}</div>
                     </div>
                     <div className="timeline-detail-datetime">
