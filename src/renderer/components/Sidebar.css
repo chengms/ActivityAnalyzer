@@ -70,6 +70,12 @@
   flex-shrink: 0;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .sidebar-toggle:hover {
@@ -211,6 +217,12 @@
   margin-right: 8px;
   font-weight: 500;
   letter-spacing: -0.01em;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .sidebar.collapsed .sidebar-item {

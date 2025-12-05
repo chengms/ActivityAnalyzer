@@ -52,6 +52,12 @@
   justify-content: center;
   border-radius: 4px;
   transition: background 0.2s;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-close:hover {

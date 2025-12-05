@@ -8,6 +8,16 @@ body {
   color: #1d1d1f;
 }
 
+/* 全局按钮样式 - 禁止选中和复制 */
+button {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* 全局滚动条样式 - 苹果风格 */
 ::-webkit-scrollbar {
   width: 10px;

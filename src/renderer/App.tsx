@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
 import { DailySummary, AppUsage, WindowUsage } from '../tracker/database';
 import { ActivityChart } from './components/ActivityChart';
@@ -309,7 +309,7 @@ function App() {
     }
   };
 
-  const handleDeleteWindow = async (appName: string, windowTitle: string) => {
+  const handleDeleteWindow = useCallback(async (appName: string, windowTitle: string) => {
     if (!window.electronAPI.deleteActivityByAppWindow) return;
     
     const confirmed = window.confirm(`确定要删除 "${appName}" - "${windowTitle === 'Unknown Window' ? '(无窗口标题)' : windowTitle}" 在 ${selectedDate} 的所有记录吗？`);
@@ -327,9 +327,9 @@ function App() {
       console.error('Error deleting activity:', error);
       alert('删除失败');
     }
-  };
+  }, [selectedDate, loadData]);
 
-  const handleDeleteApp = async (appName: string) => {
+  const handleDeleteApp = useCallback(async (appName: string) => {
     if (!window.electronAPI.deleteActivityByAppDate) return;
     
     const confirmed = window.confirm(`确定要删除 "${appName}" 在 ${selectedDate} 的所有记录吗？`);
@@ -347,17 +347,29 @@ function App() {
       console.error('Error deleting activity:', error);
       alert('删除失败');
     }
-  };
+  }, [selectedDate, loadData]);
 
 
-  const formatDuration = (seconds: number): string => {
+  const formatDuration = useCallback((seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     if (hours > 0) {
       return `${hours}小时${minutes}分钟`;
     }
     return `${minutes}分钟`;
-  };
+  }, []);
+
+  // 缓存计算结果
+  const totalAppDuration = useMemo(() => {
+    return appUsage.reduce((sum, app) => sum + app.totalDuration, 0);
+  }, [appUsage]);
+
+  // 缓存窗口使用数据切片
+  const windowUsageSlice = useMemo(() => {
+    return windowUsage.slice(0, 10);
+  }, [windowUsage]);
+
+  // 直接使用已缓存的回调函数
 
   return (
     <div className="app">
@@ -485,7 +497,7 @@ function App() {
                   <h2>应用使用排行 - {selectedDate}</h2>
                   <div className="ranking-summary">
                     <span>总应用数: {appUsage.length}</span>
-                    <span>总时长: {formatDuration(appUsage.reduce((sum, app) => sum + app.totalDuration, 0))}</span>
+                    <span>总时长: {formatDuration(totalAppDuration)}</span>
                   </div>
                 </div>
                 <AppUsageList 
@@ -571,7 +583,7 @@ function App() {
                 <div className="content-panel">
                   <h2>窗口使用统计</h2>
                   <WindowUsageList 
-                    usage={windowUsage.slice(0, 10)} 
+                    usage={windowUsageSlice} 
                     onViewDetail={windowUsage.length > 10 ? handleViewTimelineDetail : undefined}
                     onDelete={handleDeleteWindow}
                     selectedDate={selectedDate}
@@ -589,7 +601,7 @@ function App() {
                     <h2>应用使用排行 - {selectedDate}</h2>
                     <div className="ranking-summary">
                       <span>总应用数: {appUsage.length}</span>
-                      <span>总时长: {formatDuration(appUsage.reduce((sum, app) => sum + app.totalDuration, 0))}</span>
+                      <span>总时长: {formatDuration(totalAppDuration)}</span>
                     </div>
                   </div>
                   <AppUsageList 
