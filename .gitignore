@@ -15,3 +15,6 @@ reports/*.html
 src/**/*.js
 src/**/*.js.map
 
+# 构建输出和发布文件
+release/
+
