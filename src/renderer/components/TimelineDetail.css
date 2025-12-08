@@ -63,6 +63,119 @@
   color: #333;
 }
 
+.timeline-detail-controls {
+  padding: 16px 24px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.control-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-label input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.sort-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.sort-btn {
+  padding: 6px 16px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  color: #666;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sort-btn:hover {
+  border-color: #667eea;
+  background: #f0f4ff;
+}
+
+.sort-btn.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.time-range-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.time-range-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.time-range-item label {
+  font-size: 13px;
+  color: #666;
+  min-width: 80px;
+}
+
+.datetime-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.datetime-input:hover {
+  border-color: #667eea;
+  background-color: #f8f9fa;
+}
+
+.datetime-input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+/* 让日历图标覆盖整个区域 */
+.datetime-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.datetime-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 0;
+}
+
 .timeline-detail-stats {
   display: flex;
   gap: 24px;

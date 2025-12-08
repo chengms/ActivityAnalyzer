@@ -167,13 +167,19 @@ body {
   background: rgba(255, 255, 255, 1);
 }
 
+/* 让日历图标覆盖整个区域，这样点击任何地方都能触发 */
 .date-picker::-webkit-calendar-picker-indicator {
   cursor: pointer;
-  opacity: 0.6;
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
 }
 
 .date-picker::-webkit-calendar-picker-indicator:hover {
-  opacity: 1;
+  opacity: 0;
 }
 
 .btn {

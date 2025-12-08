@@ -103,6 +103,18 @@ export function ReportDateRangeDialog({ defaultDate, onConfirm, onCancel }: Repo
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
+                    onClick={(e) => {
+                      // 点击整个日期区域时弹出日期选择器
+                      if (e.currentTarget.showPicker) {
+                        e.currentTarget.showPicker();
+                      }
+                    }}
+                    onFocus={(e) => {
+                      // 聚焦时也弹出日期选择器
+                      if (e.currentTarget.showPicker) {
+                        e.currentTarget.showPicker();
+                      }
+                    }}
                     required
                     className="date-input"
                   />
@@ -131,6 +143,18 @@ export function ReportDateRangeDialog({ defaultDate, onConfirm, onCancel }: Repo
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
+                    onClick={(e) => {
+                      // 点击整个日期区域时弹出日期选择器
+                      if (e.currentTarget.showPicker) {
+                        e.currentTarget.showPicker();
+                      }
+                    }}
+                    onFocus={(e) => {
+                      // 聚焦时也弹出日期选择器
+                      if (e.currentTarget.showPicker) {
+                        e.currentTarget.showPicker();
+                      }
+                    }}
                     required
                     className="date-input"
                   />

@@ -488,6 +488,18 @@ function App() {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
+              onClick={(e) => {
+                // 点击整个日期区域时弹出日期选择器
+                if (e.currentTarget.showPicker) {
+                  e.currentTarget.showPicker();
+                }
+              }}
+              onFocus={(e) => {
+                // 聚焦时也弹出日期选择器
+                if (e.currentTarget.showPicker) {
+                  e.currentTarget.showPicker();
+                }
+              }}
               className="date-picker"
             />
           </div>

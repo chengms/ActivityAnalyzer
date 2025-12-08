@@ -133,6 +133,9 @@
   outline: none;
   transition: border-color 0.2s;
   cursor: pointer;
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .date-input:hover {
@@ -143,6 +146,21 @@
 .date-input:focus {
   border-color: #667eea;
   box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+/* 让日历图标覆盖整个区域，这样点击任何地方都能触发 */
+.date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.date-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 0;
 }
 
 .time-input {

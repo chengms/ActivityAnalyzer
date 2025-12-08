@@ -65,18 +65,52 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const contentRef = React.useRef<HTMLDivElement>(null);
   
+  // 排序选项：'desc' 倒序（默认，从最新到最旧），'asc' 正序（从最旧到最新）
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  
+  // 时间段选择
+  const [useTimeRange, setUseTimeRange] = useState(false);
+  const [startDateTime, setStartDateTime] = useState<string>('');
+  const [endDateTime, setEndDateTime] = useState<string>('');
+  
+  // 初始化：默认设置为今天的时间范围（从00:00:00到当前时间）
+  React.useEffect(() => {
+    const now = new Date();
+    const today = format(now, 'yyyy-MM-dd');
+    const currentTime = format(now, 'HH:mm:ss');
+    setStartDateTime(`${today}T00:00:00`);
+    setEndDateTime(`${today}T${currentTime}`);
+  }, []);
+  
   // 使用 useMemo 优化排序和计算，避免每次渲染都重新计算
   const processedData = useMemo(() => {
     if (records.length === 0) {
       return { sortedRecords: [], switchCount: 0 };
     }
     
-    // 只显示到当前时间点的记录
-    const now = new Date().getTime();
-    const filteredRecords = records.filter(record => {
-      const recordTime = new Date(record.startTime).getTime();
-      return recordTime <= now; // 只包含当前时间点及之前的记录
-    });
+    let filteredRecords = records;
+    
+    // 时间段过滤
+    if (useTimeRange && startDateTime && endDateTime) {
+      try {
+        const startTime = new Date(startDateTime).getTime();
+        const endTime = new Date(endDateTime).getTime();
+        
+        filteredRecords = records.filter(record => {
+          const recordTime = new Date(record.startTime).getTime();
+          return recordTime >= startTime && recordTime <= endTime;
+        });
+      } catch (error) {
+        console.error('Error filtering by time range:', error);
+      }
+    } else {
+      // 如果没有选择时间段，只显示到当前时间点的记录
+      const now = new Date().getTime();
+      filteredRecords = records.filter(record => {
+        const recordTime = new Date(record.startTime).getTime();
+        return recordTime <= now; // 只包含当前时间点及之前的记录
+      });
+    }
     
     if (filteredRecords.length === 0) {
       return { sortedRecords: [], switchCount: 0 };
@@ -93,24 +127,32 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
       }));
       
       recordsWithTimestamp.sort((a, b) => {
-        const diff = b.startTime - a.startTime;
+        const diff = sortOrder === 'desc' 
+          ? b.startTime - a.startTime  // 倒序：从新到旧
+          : a.startTime - b.startTime; // 正序：从旧到新
         if (diff !== 0) return diff;
-        return (b.endTime || 0) - (a.endTime || 0);
+        return sortOrder === 'desc'
+          ? (b.endTime || 0) - (a.endTime || 0)
+          : (a.endTime || 0) - (b.endTime || 0);
       });
       
       sorted = recordsWithTimestamp.map(r => r.record);
     } else {
       // 少量数据时，使用原来的排序方法
       sorted = [...filteredRecords].sort((a, b) => {
-        const startTimeDiff = new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
+        const startTimeDiff = sortOrder === 'desc'
+          ? new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+          : new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
         if (startTimeDiff !== 0) {
           return startTimeDiff;
         }
         if (a.endTime && b.endTime) {
-          return new Date(b.endTime).getTime() - new Date(a.endTime).getTime();
+          return sortOrder === 'desc'
+            ? new Date(b.endTime).getTime() - new Date(a.endTime).getTime()
+            : new Date(a.endTime).getTime() - new Date(b.endTime).getTime();
         }
-        if (a.endTime) return -1;
-        if (b.endTime) return 1;
+        if (a.endTime) return sortOrder === 'desc' ? -1 : 1;
+        if (b.endTime) return sortOrder === 'desc' ? 1 : -1;
         return 0;
       });
     }
@@ -134,7 +176,7 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
     });
 
     return { sortedRecords: sorted, switchCount: count };
-  }, [records]);
+  }, [records, sortOrder, useTimeRange, startDateTime, endDateTime]);
 
   // 使用 useEffect 异步更新显示，避免阻塞渲染
   useEffect(() => {
@@ -251,10 +293,85 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
         <h2>详细时间线</h2>
         {!asPage && <button className="btn-close" onClick={onClose}>×</button>}
       </div>
+      
+      {/* 控制面板：排序和时间段选择 */}
+      <div className="timeline-detail-controls">
+        <div className="control-group">
+          <label className="control-label">排序方式：</label>
+          <div className="sort-buttons">
+            <button
+              className={`sort-btn ${sortOrder === 'desc' ? 'active' : ''}`}
+              onClick={() => setSortOrder('desc')}
+            >
+              倒序（最新在前）
+            </button>
+            <button
+              className={`sort-btn ${sortOrder === 'asc' ? 'active' : ''}`}
+              onClick={() => setSortOrder('asc')}
+            >
+              正序（最早在前）
+            </button>
+          </div>
+        </div>
+        
+        <div className="control-group">
+          <label className="control-label">
+            <input
+              type="checkbox"
+              checked={useTimeRange}
+              onChange={(e) => setUseTimeRange(e.target.checked)}
+            />
+            指定时间段
+          </label>
+          {useTimeRange && (
+            <div className="time-range-inputs">
+              <div className="time-range-item">
+                <label>开始时间：</label>
+                <input
+                  type="datetime-local"
+                  value={startDateTime}
+                  onChange={(e) => setStartDateTime(e.target.value)}
+                  onClick={(e) => {
+                    if (e.currentTarget.showPicker) {
+                      e.currentTarget.showPicker();
+                    }
+                  }}
+                  onFocus={(e) => {
+                    if (e.currentTarget.showPicker) {
+                      e.currentTarget.showPicker();
+                    }
+                  }}
+                  className="datetime-input"
+                />
+              </div>
+              <div className="time-range-item">
+                <label>结束时间：</label>
+                <input
+                  type="datetime-local"
+                  value={endDateTime}
+                  onChange={(e) => setEndDateTime(e.target.value)}
+                  onClick={(e) => {
+                    if (e.currentTarget.showPicker) {
+                      e.currentTarget.showPicker();
+                    }
+                  }}
+                  onFocus={(e) => {
+                    if (e.currentTarget.showPicker) {
+                      e.currentTarget.showPicker();
+                    }
+                  }}
+                  className="datetime-input"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      
         <div className="timeline-detail-stats">
           <div className="stat-item">
             <span className="stat-label">总记录数:</span>
-            <span className="stat-value">{records.length}</span>
+            <span className="stat-value">{processedData.sortedRecords.length}</span>
           </div>
           <div className="stat-item">
             <span className="stat-label">应用切换:</span>
