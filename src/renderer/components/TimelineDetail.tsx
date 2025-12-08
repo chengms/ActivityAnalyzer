@@ -82,6 +82,50 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
     setEndDateTime(`${today}T${currentTime}`);
   }, []);
   
+  // 当切换到正序时，自动设置时间段为当天最早记录时间到当前时间
+  React.useEffect(() => {
+    if (sortOrder === 'asc' && records.length > 0) {
+      // 找到当天最早的记录时间
+      const now = new Date();
+      const today = format(now, 'yyyy-MM-dd');
+      const todayStart = new Date(`${today}T00:00:00`).getTime();
+      const todayEnd = now.getTime();
+      
+      // 过滤出当天的记录（只包含到当前时间点的记录）
+      const todayRecords = records.filter(record => {
+        const recordTime = new Date(record.startTime).getTime();
+        return recordTime >= todayStart && recordTime <= todayEnd;
+      });
+      
+      if (todayRecords.length > 0) {
+        // 找到最早的记录时间
+        const earliestRecord = todayRecords.reduce((earliest, record) => {
+          const recordTime = new Date(record.startTime).getTime();
+          const earliestTime = new Date(earliest.startTime).getTime();
+          return recordTime < earliestTime ? record : earliest;
+        });
+        
+        // 设置开始时间为最早记录时间，结束时间为当前时间
+        const earliestDate = parseISO(earliestRecord.startTime);
+        const earliestDateTime = format(earliestDate, 'yyyy-MM-dd') + 'T' + format(earliestDate, 'HH:mm');
+        const currentDateTime = format(now, 'yyyy-MM-dd') + 'T' + format(now, 'HH:mm');
+        
+        setStartDateTime(earliestDateTime);
+        setEndDateTime(currentDateTime);
+        setUseTimeRange(true); // 自动启用时间段选择
+      } else {
+        // 如果没有当天的记录，使用默认时间范围
+        const currentDateTime = format(now, 'yyyy-MM-dd') + 'T' + format(now, 'HH:mm');
+        setStartDateTime(`${today}T00:00`);
+        setEndDateTime(currentDateTime);
+        setUseTimeRange(true);
+      }
+    } else if (sortOrder === 'desc') {
+      // 切换到倒序时，可以选择是否禁用时间段选择
+      // 这里保持用户的选择，不自动禁用
+    }
+  }, [sortOrder, records]);
+  
   // 使用 useMemo 优化排序和计算，避免每次渲染都重新计算
   const processedData = useMemo(() => {
     if (records.length === 0) {
