@@ -249,6 +249,51 @@ release/
 2. 检查图标文件路径是否正确
 3. 如果暂时没有图标，可以注释掉 `icon` 配置
 
+### 问题 1.1: 打包成功但 EXE 文件没有图标
+
+**症状：** 打包成功，但生成的 EXE 文件显示默认图标而不是自定义图标
+
+**可能原因：**
+1. 图标文件格式不正确（可能只是重命名的 PNG，不是真正的 ICO）
+2. 图标文件缺少必要的尺寸（需要包含 256, 128, 64, 48, 32, 16 像素）
+3. electron-builder 缓存问题
+4. Windows 图标缓存问题
+
+**解决方案：**
+
+```powershell
+# 方法 1: 清理 electron-builder 缓存并重新打包（推荐）
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\electron-builder\Cache" -ErrorAction SilentlyContinue
+npm run build
+npm run dist:win:portable
+```
+
+```powershell
+# 方法 2: 清理 Windows 图标缓存
+# 以管理员身份运行 PowerShell，然后执行：
+ie4uinit.exe -show
+# 或者重启资源管理器
+Stop-Process -Name explorer -Force; Start-Process explorer
+```
+
+```powershell
+# 方法 3: 确保图标文件是正确的 ICO 格式
+# 使用在线工具重新生成 ICO 文件：
+# 访问 https://icoconvert.com/ 上传 PNG，选择生成多尺寸 ICO
+# 下载后替换 build/icon.ico
+```
+
+```powershell
+# 方法 4: 检查图标文件是否包含多个尺寸
+# 使用工具检查 ICO 文件（如 IcoFX、Greenfish Icon Editor Pro）
+# 确保包含以下尺寸：256x256, 128x128, 64x64, 48x48, 32x32, 16x16
+```
+
+**验证方法：**
+1. 打包后，检查 `release/win-unpacked/活动分析器.exe` 的图标
+2. 如果 `win-unpacked` 中的 EXE 有图标，但便携版没有，可能是便携版打包问题
+3. 尝试重新生成图标文件，确保是有效的多尺寸 ICO 格式
+
 ### 问题 2: 打包文件太大
 
 **原因：** 包含了不必要的文件

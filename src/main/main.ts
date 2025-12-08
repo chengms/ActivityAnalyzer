@@ -92,47 +92,112 @@ function createWindow() {
 
 function createTray() {
   // 创建系统托盘图标
-  let trayIcon: Electron.NativeImage = nativeImage.createEmpty();
+  let trayIcon: Electron.NativeImage | null = null;
   
-  // 尝试加载图标，如果不存在则使用应用图标
-  const iconPath = path.join(__dirname, '../../assets/icon.png');
-  const appIcon = app.getAppPath();
+  // 尝试从多个可能的位置加载图标
+  // 注意：打包后的应用路径与开发模式不同
+  const isDev = !app.isPackaged;
+  const possibleIconPaths: string[] = [];
+  
+  if (isDev) {
+    // 开发模式：从项目根目录加载
+    // 在开发模式下，app.getAppPath() 返回项目根目录
+    // __dirname 是 dist/main/，需要向上两级到项目根目录
+    const projectRoot = app.getAppPath();
+    const distMainDir = __dirname; // dist/main/
+    const projectRootFromDist = path.join(distMainDir, '../../'); // 从 dist/main/ 向上两级
+    
+    possibleIconPaths.push(
+      // 从项目根目录加载（最常用）
+      path.join(projectRoot, 'build', 'icon.ico'),
+      path.join(projectRoot, 'build', 'icon-1.png'),
+      // 从 dist/main/ 相对路径加载
+      path.join(distMainDir, '../../build/icon.ico'),
+      path.join(distMainDir, '../../build/icon-1.png'),
+      // 使用 path.resolve 确保路径正确
+      path.resolve(projectRoot, 'build', 'icon.ico'),
+      path.resolve(projectRoot, 'build', 'icon-1.png'),
+      path.resolve(distMainDir, '../../build/icon.ico'),
+      path.resolve(distMainDir, '../../build/icon-1.png'),
+      // 备用路径
+      path.join(projectRoot, 'assets', 'icon.png'),
+      path.join(projectRoot, 'icon.png'),
+    );
+  } else {
+    // 打包后的应用：从 resources 目录加载
+    // electron-builder 会将 buildResources 目录的内容复制到 resources 目录
+    const resourcesPath = process.resourcesPath || path.join(path.dirname(process.execPath), 'resources');
+    possibleIconPaths.push(
+      path.join(resourcesPath, 'build', 'icon.ico'),
+      path.join(resourcesPath, 'build', 'icon-1.png'),
+      path.join(resourcesPath, 'app.asar.unpacked', 'build', 'icon.ico'),
+      // 如果图标被打包到 asar 中
+      path.join(app.getAppPath(), 'build', 'icon.ico'),
+      path.join(app.getAppPath(), 'build', 'icon-1.png'),
+      // 备用：从应用目录加载
+      path.join(path.dirname(process.execPath), 'build', 'icon.ico'),
+      path.join(path.dirname(process.execPath), 'build', 'icon-1.png'),
+    );
+  }
+  
+  // 添加通用备用路径
+  possibleIconPaths.push(
+    path.join(__dirname, '../renderer/favicon.ico'),
+  );
   
   try {
-    if (fs.existsSync(iconPath)) {
-      trayIcon = nativeImage.createFromPath(iconPath);
-    } else {
-      // 尝试使用应用图标
-      const possibleIconPaths = [
-        path.join(appIcon, 'assets', 'icon.png'),
-        path.join(appIcon, 'icon.png'),
-        path.join(__dirname, '../renderer/favicon.ico'),
-      ];
-      
-      let found = false;
-      for (const possiblePath of possibleIconPaths) {
-        if (fs.existsSync(possiblePath)) {
-          trayIcon = nativeImage.createFromPath(possiblePath);
+    let found = false;
+    // 在开发模式下，记录所有尝试的路径以便调试
+    if (isDev) {
+      logger.info(`[Dev Mode] Searching for tray icon in ${possibleIconPaths.length} possible paths`);
+      logger.info(`[Dev Mode] app.getAppPath(): ${app.getAppPath()}`);
+      logger.info(`[Dev Mode] __dirname: ${__dirname}`);
+    }
+    
+    for (const iconPath of possibleIconPaths) {
+      const normalizedPath = path.normalize(iconPath);
+      if (fs.existsSync(normalizedPath)) {
+        logger.info(`Loading tray icon from: ${normalizedPath}`);
+        trayIcon = nativeImage.createFromPath(normalizedPath);
+        
+        // 验证图标是否有效
+        if (trayIcon && trayIcon.getSize().width > 0) {
           found = true;
+          logger.info(`Successfully loaded tray icon (${trayIcon.getSize().width}x${trayIcon.getSize().height})`);
           break;
+        } else {
+          logger.warn(`Icon file found but invalid: ${normalizedPath}`);
         }
-      }
-      
-      if (!found) {
-        // 创建一个简单的16x16图标
-        trayIcon = nativeImage.createEmpty();
-        trayIcon = trayIcon.resize({ width: 16, height: 16 });
+      } else if (isDev) {
+        // 在开发模式下，记录未找到的路径（仅前几个，避免日志过多）
+        const index = possibleIconPaths.indexOf(iconPath);
+        if (index < 5) {
+          logger.debug(`Icon not found at: ${normalizedPath}`);
+        }
       }
     }
     
+    if (!found || !trayIcon) {
+      logger.warn('No tray icon found, creating empty icon');
+      // 创建一个简单的16x16图标
+      trayIcon = nativeImage.createEmpty();
+      trayIcon = trayIcon.resize({ width: 16, height: 16 });
+    }
+    
     // 确保图标大小合适（Windows 推荐 16x16 或 32x32）
-    if (trayIcon.getSize().width > 32) {
+    const iconSize = trayIcon.getSize();
+    if (iconSize.width > 32 || iconSize.height > 32) {
+      logger.info(`Resizing tray icon from ${iconSize.width}x${iconSize.height} to 32x32`);
       trayIcon = trayIcon.resize({ width: 32, height: 32 });
+    } else if (iconSize.width < 16 || iconSize.height < 16) {
+      logger.info(`Resizing tray icon from ${iconSize.width}x${iconSize.height} to 16x16`);
+      trayIcon = trayIcon.resize({ width: 16, height: 16 });
     }
   } catch (error) {
     logger.error('Error creating tray icon:', error);
     // 创建一个最小的图标
     trayIcon = nativeImage.createEmpty();
+    trayIcon = trayIcon.resize({ width: 16, height: 16 });
   }
 
   tray = new Tray(trayIcon);

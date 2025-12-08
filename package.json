@@ -58,11 +58,14 @@
     "appId": "com.activityanalyzer.app",
     "productName": "活动分析器",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
       "package.json",
+      "build/icon.ico",
+      "build/icon-1.png",
       "!src/**/*",
       "!*.md",
       "!*.config.*",
