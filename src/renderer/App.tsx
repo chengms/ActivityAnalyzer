@@ -35,9 +35,6 @@ declare global {
       getCurrentActivity?: () => Promise<{ appName: string; windowTitle: string; duration: number; startTime: Date | null } | null>;
       getRecentActivities?: () => Promise<Array<{ appName: string; windowTitle: string; duration: number; startTime: Date; endTime: Date | null; isActive: boolean }>>;
       onTrackingStatusChanged?: (callback: (isRunning: boolean) => void) => (() => void) | undefined;
-      getReportList?: () => Promise<Array<{ date: string; htmlPath: string; excelPath: string; exists: boolean }>>;
-      readHTMLReport?: (htmlPath: string) => Promise<string | null>;
-      openReportFile?: (filePath: string) => Promise<void>;
       deleteActivityByAppWindow?: (date: string, appName: string, windowTitle: string) => Promise<number>;
       deleteActivityByApp?: (appName: string) => Promise<number>;
       deleteActivityByAppDate?: (date: string, appName: string) => Promise<number>;

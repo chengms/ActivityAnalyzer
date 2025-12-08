@@ -138,10 +138,6 @@ body {
   }
 }
 
-.status-text {
-  font-weight: 500;
-}
-
 .date-picker {
   padding: 10px 16px;
   border: 0.5px solid rgba(0, 0, 0, 0.15);
@@ -340,13 +336,12 @@ body {
 }
 
 .card-label {
-  font-size: 13px;
+  font-size: 11px;
   color: #86868b;
   margin-bottom: 6px;
   font-weight: 500;
   letter-spacing: -0.01em;
   text-transform: uppercase;
-  font-size: 11px;
 }
 
 .card-value {

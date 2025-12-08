@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, powerMonitor } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, powerMonitor, shell } from 'electron';
 import path from 'path';
 import { Database } from '../tracker/database';
 import { ActivityTracker } from '../tracker/tracker';
@@ -6,6 +6,7 @@ import { Reporter } from '../reporter/reporter';
 import { Settings, AppSettings } from '../settings/settings';
 import { AutoLauncher } from './autoLauncher';
 import { logger } from './logger';
+import * as fs from 'fs';
 
 // 设置应用名称（在创建窗口之前）
 if (!app.isReady()) {
@@ -91,7 +92,6 @@ function createWindow() {
 
 function createTray() {
   // 创建系统托盘图标
-  const fs = require('fs');
   let trayIcon: Electron.NativeImage = nativeImage.createEmpty();
   
   // 尝试加载图标，如果不存在则使用应用图标
@@ -349,8 +349,12 @@ ipcMain.handle('read-html-report', async (event, htmlPath: string) => {
 });
 
 ipcMain.handle('open-report-file', async (event, filePath: string) => {
-  const { shell } = require('electron');
-  await shell.openPath(filePath);
+  try {
+    await shell.openPath(filePath);
+  } catch (error) {
+    logger.error('Error opening report file:', error);
+    throw error;
+  }
 });
 
 // 设置相关 IPC
@@ -362,32 +366,42 @@ ipcMain.handle('get-settings', async () => {
 ipcMain.handle('update-settings', async (event, updates: Partial<AppSettings>) => {
   if (!settings) return false;
   
-  settings.updateSettings(updates);
-  
-  // 如果更新了检测间隔，更新追踪器
-  if (updates.checkInterval && tracker) {
-    tracker.updateInterval(updates.checkInterval);
-  }
-  
-  // 如果更新了开机自启动，更新注册表
-  if (updates.autoStart !== undefined && autoLauncher) {
-    if (updates.autoStart) {
-      await autoLauncher.enable();
-    } else {
-      await autoLauncher.disable();
+  try {
+    settings.updateSettings(updates);
+    
+    // 如果更新了检测间隔，更新追踪器
+    if (updates.checkInterval && tracker) {
+      tracker.updateInterval(updates.checkInterval);
     }
-  }
-  
-  // 如果更新了调试模式，打开/关闭开发者工具
-  if (updates.debugMode !== undefined && mainWindow) {
-    if (updates.debugMode) {
-      mainWindow.webContents.openDevTools();
-    } else {
-      mainWindow.webContents.closeDevTools();
+    
+    // 如果更新了开机自启动，更新注册表
+    if (updates.autoStart !== undefined && autoLauncher) {
+      try {
+        if (updates.autoStart) {
+          await autoLauncher.enable();
+        } else {
+          await autoLauncher.disable();
+        }
+      } catch (error) {
+        logger.error('Error updating auto start:', error);
+        // 继续执行，不中断设置更新
+      }
     }
+    
+    // 如果更新了调试模式，打开/关闭开发者工具
+    if (updates.debugMode !== undefined && mainWindow) {
+      if (updates.debugMode) {
+        mainWindow.webContents.openDevTools();
+      } else {
+        mainWindow.webContents.closeDevTools();
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    logger.error('Error updating settings:', error);
+    return false;
   }
-  
-  return true;
 });
 
 ipcMain.handle('get-auto-start-status', async () => {
