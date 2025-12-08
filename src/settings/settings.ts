@@ -11,6 +11,7 @@ export interface AppSettings {
   debugMode: boolean; // 调试模式（打开开发者工具）
   databasePath?: string; // 自定义数据库路径（为空时使用默认路径）
   logPath?: string; // 自定义日志路径（为空时使用默认路径）
+  reportPath?: string; // 自定义报告路径（为空时使用默认路径）
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -22,6 +23,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   debugMode: false, // 默认关闭调试模式
   databasePath: '', // 空字符串表示使用默认路径
   logPath: '', // 空字符串表示使用默认路径
+  reportPath: '', // 空字符串表示使用默认路径
 };
 
 export class Settings {

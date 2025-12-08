@@ -9,6 +9,7 @@ export interface AppSettings {
   debugMode: boolean;
   databasePath?: string;
   logPath?: string;
+  reportPath?: string;
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -56,6 +57,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 日志相关
   getLogFilePath: () => ipcRenderer.invoke('get-log-file-path') as Promise<string>,
   getLogDirPath: () => ipcRenderer.invoke('get-log-dir-path') as Promise<string>,
+  // 报告相关
+  getReportDirPath: () => ipcRenderer.invoke('get-report-dir-path') as Promise<string>,
   // 文件夹选择
   selectFolder: (options?: { title?: string; defaultPath?: string }) => 
     ipcRenderer.invoke('select-folder', options) as Promise<string | null>,

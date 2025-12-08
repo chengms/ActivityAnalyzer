@@ -6,9 +6,30 @@ import fs from 'fs';
 
 export class Reporter {
   private database: Database;
+  private customReportPath?: string;
 
-  constructor(database: Database) {
+  constructor(database: Database, customReportPath?: string) {
     this.database = database;
+    this.customReportPath = customReportPath;
+  }
+
+  // 获取报告目录路径
+  private getReportsDir(): string {
+    if (this.customReportPath && this.customReportPath.trim() !== '') {
+      const customPath = this.customReportPath.trim();
+      if (path.isAbsolute(customPath)) {
+        return path.join(customPath, 'reports');
+      } else {
+        return path.join(customPath, 'reports');
+      }
+    }
+    // 默认路径
+    return path.join(app.getPath('userData'), 'reports');
+  }
+
+  // 获取报告目录路径（公共方法）
+  getReportDirPath(): string {
+    return this.getReportsDir();
   }
 
   async generateDailyReport(date: string): Promise<{ success: boolean; path: string; htmlContent?: string; htmlPath?: string; excelPath?: string; error?: string }> {
@@ -20,7 +41,7 @@ export class Reporter {
       }
 
       // 确保报告目录存在
-      const reportsDir = path.join(app.getPath('userData'), 'reports');
+      const reportsDir = this.getReportsDir();
       try {
         if (!fs.existsSync(reportsDir)) {
           fs.mkdirSync(reportsDir, { recursive: true });
@@ -74,7 +95,7 @@ export class Reporter {
       }
 
       // 确保报告目录存在
-      const reportsDir = path.join(app.getPath('userData'), 'reports');
+      const reportsDir = this.getReportsDir();
       try {
         if (!fs.existsSync(reportsDir)) {
           fs.mkdirSync(reportsDir, { recursive: true });
@@ -421,7 +442,7 @@ export class Reporter {
   // 获取历史报告列表
   getReportList(): Array<{ date: string; htmlPath: string; excelPath: string; exists: boolean; fileKey?: string }> {
     try {
-      const reportsDir = path.join(app.getPath('userData'), 'reports');
+      const reportsDir = this.getReportsDir();
       if (!fs.existsSync(reportsDir)) {
         return [];
       }

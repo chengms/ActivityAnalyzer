@@ -10,6 +10,7 @@ interface AppSettings {
   debugMode: boolean;
   databasePath?: string;
   logPath?: string;
+  reportPath?: string;
 }
 
 interface SettingsProps {
@@ -49,29 +50,29 @@ export function Settings({ onClose }: SettingsProps) {
       const currentSettings = await window.electronAPI.getSettings();
       const dbPathChanged = currentSettings?.databasePath !== settings.databasePath;
       const logPathChanged = currentSettings?.logPath !== settings.logPath;
+      const reportPathChanged = currentSettings?.reportPath !== settings.reportPath;
       
       // 如果有路径变更，显示迁移提示
-      if (dbPathChanged || logPathChanged) {
+      if (dbPathChanged || logPathChanged || reportPathChanged) {
         setMessage('正在迁移数据文件...');
       }
       
       const success = await window.electronAPI.updateSettings(settings);
       if (success) {
-        if (dbPathChanged && logPathChanged) {
-          setMessage('设置已保存。数据库和日志路径已变更，数据已迁移，请重启应用以应用数据库路径更改。');
+        const pathChanges: string[] = [];
+        if (dbPathChanged) pathChanges.push('数据库');
+        if (logPathChanged) pathChanges.push('日志');
+        if (reportPathChanged) pathChanges.push('报告');
+        
+        if (pathChanges.length > 0) {
+          if (dbPathChanged) {
+            setMessage(`设置已保存。${pathChanges.join('、')}路径已变更，数据已迁移，请重启应用以应用数据库路径更改。`);
+          } else {
+            setMessage(`设置已保存。${pathChanges.join('、')}路径已变更，数据已迁移。`);
+          }
           setTimeout(() => {
             setMessage('');
           }, 6000);
-        } else if (dbPathChanged) {
-          setMessage('设置已保存。数据库路径已变更，数据已迁移，请重启应用以应用更改。');
-          setTimeout(() => {
-            setMessage('');
-          }, 6000);
-        } else if (logPathChanged) {
-          setMessage('设置已保存。日志路径已变更，日志文件已迁移。');
-          setTimeout(() => {
-            setMessage('');
-          }, 4000);
         } else {
           setMessage('设置已保存');
           setTimeout(() => {
@@ -356,6 +357,49 @@ export function Settings({ onClose }: SettingsProps) {
                 自定义日志文件保存位置。留空则使用默认路径（%APPDATA%\活动分析器\logs\）。
                 <br />
                 修改后立即生效，新的日志将保存到新位置。
+              </p>
+            </div>
+
+            <div className="setting-item">
+              <label>
+                <span>报告路径</span>
+              </label>
+              <div className="setting-control path-control">
+                <input
+                  type="text"
+                  value={settings.reportPath || ''}
+                  onChange={(e) => handleChange('reportPath', e.target.value)}
+                  placeholder="留空使用默认路径"
+                  className="path-input"
+                />
+                <button
+                  type="button"
+                  className="btn-select-folder"
+                  onClick={async () => {
+                    const selectedPath = await window.electronAPI.selectFolder?.({
+                      title: '选择报告保存文件夹',
+                      defaultPath: settings?.reportPath || undefined,
+                    });
+                    if (selectedPath && settings) {
+                      handleChange('reportPath', selectedPath);
+                    }
+                  }}
+                >
+                  浏览...
+                </button>
+                <button
+                  type="button"
+                  className="btn-reset-path"
+                  onClick={() => handleChange('reportPath', '')}
+                  title="重置为默认路径"
+                >
+                  重置
+                </button>
+              </div>
+              <p className="setting-description">
+                自定义报告文件保存位置。留空则使用默认路径（%APPDATA%\活动分析器\reports\）。
+                <br />
+                修改后立即生效，新的报告将保存到新位置，旧报告会自动迁移。
               </p>
             </div>
           </div>

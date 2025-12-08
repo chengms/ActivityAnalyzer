@@ -290,9 +290,11 @@ app.whenReady().then(async () => {
     // 监听锁屏事件
     setupLockScreenMonitoring();
 
-    // 初始化报告生成器
+    // 初始化报告生成器（使用设置中的路径）
     logger.info('Initializing reporter...');
-    reporter = new Reporter(database);
+    const reportPath = settings.getSetting('reportPath');
+    reporter = new Reporter(database, reportPath);
+    logger.info(`Reporter initialized, report directory: ${reporter.getReportDirPath()}`);
 
     // 创建系统托盘
     logger.info('Creating tray...');
@@ -627,6 +629,78 @@ ipcMain.handle('update-settings', async (event, updates: Partial<AppSettings>) =
       }
     }
     
+    // 如果更新了报告路径，迁移报告目录
+    if (updates.reportPath !== undefined) {
+      const oldReportDir = reporter ? reporter.getReportDirPath() : null;
+      const newReportPath = updates.reportPath.trim() || '';
+      
+      // 计算新的报告目录路径
+      let targetReportDir: string;
+      if (newReportPath === '') {
+        // 重置为默认路径
+        const userDataPath = app.getPath('userData');
+        targetReportDir = path.join(userDataPath, 'reports');
+      } else {
+        if (path.isAbsolute(newReportPath)) {
+          targetReportDir = path.join(newReportPath, 'reports');
+        } else {
+          targetReportDir = path.join(newReportPath, 'reports');
+        }
+      }
+      
+      // 如果路径确实变更了，且旧报告目录存在，则迁移
+      if (oldReportDir && oldReportDir !== targetReportDir && fs.existsSync(oldReportDir)) {
+        try {
+          // 确保目标目录存在
+          if (!fs.existsSync(targetReportDir)) {
+            fs.mkdirSync(targetReportDir, { recursive: true });
+          }
+          
+          // 复制所有报告文件（HTML 和 Excel）
+          const reportFiles = fs.readdirSync(oldReportDir).filter(file => 
+            (file.endsWith('.html') || file.endsWith('.xlsx')) && file.startsWith('活动报告_')
+          );
+          
+          if (reportFiles.length > 0) {
+            for (const file of reportFiles) {
+              const oldFilePath = path.join(oldReportDir, file);
+              const newFilePath = path.join(targetReportDir, file);
+              
+              // 如果目标文件已存在，跳过（保留较新的）
+              if (fs.existsSync(newFilePath)) {
+                const oldStats = fs.statSync(oldFilePath);
+                const newStats = fs.statSync(newFilePath);
+                if (oldStats.mtime > newStats.mtime) {
+                  fs.copyFileSync(oldFilePath, newFilePath);
+                }
+              } else {
+                fs.copyFileSync(oldFilePath, newFilePath);
+              }
+            }
+            logger.info(`Migrated ${reportFiles.length} report files from ${oldReportDir} to ${targetReportDir}`);
+          }
+          
+          // 更新 Reporter 实例（使用新路径）
+          if (reporter && database) {
+            reporter = new Reporter(database, updates.reportPath);
+            logger.info(`Report directory updated to: ${reporter.getReportDirPath()}`);
+          }
+        } catch (error) {
+          logger.error('Error migrating report directory:', error);
+          // 回滚设置
+          const currentSettings = settings.getSettings();
+          settings.updateSetting('reportPath', currentSettings.reportPath || '');
+          throw new Error(`报告目录迁移失败: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      } else {
+        // 路径未变更或旧目录不存在，直接更新 Reporter 实例
+        if (reporter && database) {
+          reporter = new Reporter(database, updates.reportPath);
+          logger.info(`Report directory updated to: ${reporter.getReportDirPath()}`);
+        }
+      }
+    }
+    
     return true;
   } catch (error) {
     logger.error('Error updating settings:', error);
@@ -663,6 +737,15 @@ ipcMain.handle('get-log-file-path', async () => {
 
 ipcMain.handle('get-log-dir-path', async () => {
   return logger.getLogDirPath();
+});
+
+// 报告相关 IPC
+ipcMain.handle('get-report-dir-path', async () => {
+  if (!reporter) {
+    // 如果 reporter 未初始化，返回默认路径
+    return path.join(app.getPath('userData'), 'reports');
+  }
+  return reporter.getReportDirPath();
 });
 
 // 追踪控制相关 IPC
