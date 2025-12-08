@@ -34,6 +34,8 @@
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
+    "app-builder-bin": "^4.2.0",
+    "builder-util": "^26.0.11",
     "concurrently": "^8.2.2",
     "electron": "^28.3.3",
     "electron-builder": "^26.0.12",
@@ -61,20 +63,18 @@
     "files": [
       "dist/**/*",
       "package.json",
-      "!node_modules/**/*",
       "!src/**/*",
       "!*.md",
       "!*.config.*",
       "!tsconfig*.json"
     ],
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**/*",
+      "**/node_modules/active-win/**/*"
+    ],
+    "asar": true,
     "win": {
       "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
         {
           "target": "portable",
           "arch": [
@@ -82,7 +82,8 @@
           ]
         }
       ],
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "forceCodeSigning": false
     },
     "nsis": {
       "oneClick": false,

@@ -190,6 +190,83 @@
   line-height: 1.5;
 }
 
+/* 路径选择控件样式 */
+.path-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.path-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #fafafa;
+  transition: all 0.2s;
+}
+
+.path-input:focus {
+  outline: none;
+  border-color: #667eea;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.path-input::placeholder {
+  color: #999;
+}
+
+.btn-select-folder {
+  padding: 8px 16px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.btn-select-folder:hover {
+  background: #5568d3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.btn-select-folder:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(102, 126, 234, 0.2);
+}
+
+.btn-reset-path {
+  padding: 8px 12px;
+  background: #f0f0f0;
+  color: #666;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.btn-reset-path:hover {
+  background: #e0e0e0;
+  border-color: #c0c0c0;
+  color: #333;
+}
+
+.btn-reset-path:active {
+  background: #d0d0d0;
+}
+
 /* 开关样式 */
 .switch {
   position: relative;

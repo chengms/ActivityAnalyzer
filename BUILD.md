@@ -25,6 +25,18 @@ npm run dist
 npm run pack
 ```
 
+**⚠️ 如果遇到网络问题（无法从 GitHub 下载 Electron）：**
+
+```powershell
+# 使用打包脚本（自动配置国内镜像）
+.\pack-with-mirror.ps1 dist:win:portable
+
+# 或者手动设置环境变量
+$env:ELECTRON_MIRROR = "https://npmmirror.com/mirrors/electron/"
+$env:ELECTRON_BUILDER_BINARIES_MIRROR = "https://npmmirror.com/mirrors/electron-builder-binaries/"
+npm run dist:win:portable
+```
+
 ## 🎯 打包选项
 
 ### Windows
@@ -246,21 +258,167 @@ release/
 2. 使用 `asar` 打包（默认启用）
 3. 排除开发依赖
 
-### 问题 3: 运行打包后的应用报错
+### 问题 3: 打包失败 - 网络连接错误（无法下载 Electron）
 
-**可能原因：**
-1. 缺少 native 模块（如 better-sqlite3）
-2. 路径问题
-
-**解决：**
-```bash
-# 重新构建 native 模块
-npm run rebuild
-
-# 重新打包
-npm run build
-npm run dist
+**错误信息：**
 ```
+⨯ Get "https://github.com/electron/electron/releases/download/v28.3.3/electron-v28.3.3-win32-x64.zip": read tcp ... wsarecv: A connection attempt failed
+```
+
+**原因：** 无法从 GitHub 下载 Electron ZIP 文件（网络问题，常见于中国大陆）
+
+**解决方案：**
+
+```powershell
+# 方法 1: 使用打包脚本（推荐，最简单）
+# 脚本会自动设置国内镜像
+.\pack-with-mirror.ps1 dist:win:portable
+```
+
+```powershell
+# 方法 2: 手动设置环境变量后打包
+$env:ELECTRON_MIRROR = "https://npmmirror.com/mirrors/electron/"
+$env:ELECTRON_BUILDER_BINARIES_MIRROR = "https://npmmirror.com/mirrors/electron-builder-binaries/"
+npm run dist:win:portable
+```
+
+```powershell
+# 方法 3: 使用代理（如果有）
+$env:HTTP_PROXY = "http://127.0.0.1:7890"
+$env:HTTPS_PROXY = "http://127.0.0.1:7890"
+npm run dist:win:portable
+```
+
+### 问题 4: 打包失败 - 无法创建符号链接（权限错误）
+
+**错误信息：**
+```
+ERROR: Cannot create symbolic link : 客户端没有所需的特权
+ERROR: Cannot create symbolic link : ...\darwin\10.12\lib\libcrypto.dylib
+```
+
+**原因：** Windows 上创建符号链接需要管理员权限，winCodeSign 工具解压时失败
+
+**解决方案：**
+
+```powershell
+# 方法 1: 使用打包脚本（推荐，已自动禁用代码签名）
+# 脚本已设置 CSC_IDENTITY_AUTO_DISCOVERY=false 和 forceCodeSigning: false
+.\pack-with-mirror.ps1 dist:win:portable
+```
+
+```powershell
+# 方法 1.1: 手动设置环境变量禁用代码签名
+$env:ELECTRON_MIRROR = "https://npmmirror.com/mirrors/electron/"
+$env:ELECTRON_BUILDER_BINARIES_MIRROR = "https://npmmirror.com/mirrors/electron-builder-binaries/"
+$env:CSC_IDENTITY_AUTO_DISCOVERY = "false"
+npm run dist:win:portable
+```
+
+```powershell
+# 方法 2: 以管理员身份运行 PowerShell
+# 右键点击 PowerShell，选择"以管理员身份运行"
+# 然后运行打包命令
+.\pack-with-mirror.ps1 dist:win:portable
+```
+
+```powershell
+# 方法 3: 启用 Windows 开发者模式（允许非管理员创建符号链接）
+# 设置 -> 更新和安全 -> 开发者选项 -> 启用"开发人员模式"
+# 然后重新打包
+.\pack-with-mirror.ps1 dist:win:portable
+```
+
+### 问题 5: 打包失败 - ZIP 文件错误
+
+**错误信息：**
+```
+⨯ zip: not a valid zip file
+⨯ app-builder.exe process failed ERR_ELECTRON_BUILDER_CANNOT_EXECUTE
+```
+
+**原因：** app-builder-bin 的二进制文件损坏或下载不完整
+
+**解决方案：**
+
+```powershell
+# 方法 1: 清理所有缓存并重新安装（推荐，最彻底）
+# 清理 electron-builder 缓存
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\electron-builder" -ErrorAction SilentlyContinue
+# 清理 Electron 缓存
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\electron\Cache" -ErrorAction SilentlyContinue
+# 清理嵌套的 app-builder-bin
+Remove-Item -Recurse -Force "node_modules\builder-util\node_modules\app-builder-bin" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "node_modules\app-builder-bin" -ErrorAction SilentlyContinue
+# 清理 npm 缓存
+npm cache clean --force
+# 重新安装相关依赖
+npm install builder-util@latest --save-dev
+npm install electron-builder@latest --save-dev
+
+# 然后重新尝试打包
+npm run pack
+```
+
+```powershell
+# 方法 2: 完全重新安装（如果方法 1 无效）
+Remove-Item -Recurse -Force node_modules
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\electron-builder" -ErrorAction SilentlyContinue
+npm cache clean --force
+npm install
+```
+
+```powershell
+# 方法 2.1: 清理 builder-util 中的嵌套依赖（如果错误路径指向 builder-util）
+Remove-Item -Recurse -Force "node_modules\builder-util\node_modules\app-builder-bin" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "node_modules\app-builder-bin" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\electron-builder" -ErrorAction SilentlyContinue
+npm cache clean --force
+npm install builder-util@latest --save-dev
+npm install electron-builder@latest --save-dev
+```
+
+```powershell
+# 方法 3: 使用网络代理或镜像（如果网络问题）
+npm config set registry https://registry.npmmirror.com
+npm install electron-builder@latest --save-dev
+```
+
+### 问题 4: 运行打包后的应用报错 - Cannot find module 'better-sqlite3'
+
+**错误信息：**
+```
+Error: Cannot find module 'better-sqlite3'
+```
+
+**原因：** better-sqlite3 是 native 模块，不能被打包到 asar 中，需要特殊处理
+
+**解决方案：**
+
+```powershell
+# 方法 1: 重新构建 native 模块并打包（推荐）
+npm run rebuild
+npm run build
+.\pack-with-mirror.ps1 dist:win:portable
+```
+
+**配置说明：**
+已在 `package.json` 中配置 `asarUnpack`，将 better-sqlite3 从 asar 中排除：
+```json
+{
+  "build": {
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**/*",
+      "**/node_modules/active-win/**/*"
+    ]
+  }
+}
+```
+
+如果问题仍然存在，检查：
+1. `node_modules/better-sqlite3/build/Release/better_sqlite3.node` 是否存在
+2. 是否已运行 `npm run rebuild`
+3. 打包时是否包含了 native 模块文件
 
 ### 问题 4: Windows Defender 报毒
 

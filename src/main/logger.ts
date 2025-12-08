@@ -49,11 +49,21 @@ class Logger {
   }
 
   /**
-   * 更新日志目录（在 app ready 后调用）
+   * 更新日志目录（在 app ready 后调用，或路径变更时调用）
    */
-  updateLogDir(): void {
+  updateLogDir(customPath?: string): void {
     try {
-      const newLogDir = path.join(app.getPath('userData'), 'logs');
+      let newLogDir: string;
+      if (customPath && customPath.trim() !== '') {
+        // 使用自定义路径
+        newLogDir = path.isAbsolute(customPath) 
+          ? customPath 
+          : path.join(customPath, 'logs');
+      } else {
+        // 使用默认路径
+        newLogDir = path.join(app.getPath('userData'), 'logs');
+      }
+      
       if (newLogDir !== this.logDir) {
         this.logDir = newLogDir;
         this.logFile = path.join(this.logDir, `app-${this.getDateString()}.log`);

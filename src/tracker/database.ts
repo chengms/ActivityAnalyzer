@@ -47,9 +47,34 @@ export class Database {
   private db: DatabaseLib.Database | null = null;
   private dbPath: string;
 
-  constructor() {
-    const userDataPath = app.getPath('userData');
-    this.dbPath = path.join(userDataPath, 'activity.db');
+  constructor(customPath?: string) {
+    if (customPath && customPath.trim() !== '') {
+      // 使用自定义路径
+      const customPathNormalized = customPath.trim();
+      if (path.isAbsolute(customPathNormalized)) {
+        // 如果是绝对路径，检查是否以 .db 结尾
+        if (customPathNormalized.toLowerCase().endsWith('.db')) {
+          this.dbPath = customPathNormalized;
+        } else {
+          // 如果是文件夹路径，在该文件夹下创建 activity.db
+          this.dbPath = path.join(customPathNormalized, 'activity.db');
+        }
+      } else {
+        // 相对路径，在当前工作目录下创建
+        this.dbPath = path.join(customPathNormalized, 'activity.db');
+      }
+    } else {
+      // 使用默认路径
+      const userDataPath = app.getPath('userData');
+      this.dbPath = path.join(userDataPath, 'activity.db');
+    }
+  }
+
+  /**
+   * 获取当前数据库路径
+   */
+  getDbPath(): string {
+    return this.dbPath;
   }
 
   init() {

@@ -8,6 +8,8 @@ interface AppSettings {
   minimizeToTray: boolean;
   closeToTray: boolean;
   debugMode: boolean;
+  databasePath?: string;
+  logPath?: string;
 }
 
 interface SettingsProps {
@@ -43,18 +45,53 @@ export function Settings({ onClose }: SettingsProps) {
     setMessage('');
 
     try {
+      // 检查数据库路径是否变更
+      const currentSettings = await window.electronAPI.getSettings();
+      const dbPathChanged = currentSettings?.databasePath !== settings.databasePath;
+      const logPathChanged = currentSettings?.logPath !== settings.logPath;
+      
+      // 如果有路径变更，显示迁移提示
+      if (dbPathChanged || logPathChanged) {
+        setMessage('正在迁移数据文件...');
+      }
+      
       const success = await window.electronAPI.updateSettings(settings);
       if (success) {
-        setMessage('设置已保存');
-        setTimeout(() => {
-          setMessage('');
-        }, 2000);
+        if (dbPathChanged && logPathChanged) {
+          setMessage('设置已保存。数据库和日志路径已变更，数据已迁移，请重启应用以应用数据库路径更改。');
+          setTimeout(() => {
+            setMessage('');
+          }, 6000);
+        } else if (dbPathChanged) {
+          setMessage('设置已保存。数据库路径已变更，数据已迁移，请重启应用以应用更改。');
+          setTimeout(() => {
+            setMessage('');
+          }, 6000);
+        } else if (logPathChanged) {
+          setMessage('设置已保存。日志路径已变更，日志文件已迁移。');
+          setTimeout(() => {
+            setMessage('');
+          }, 4000);
+        } else {
+          setMessage('设置已保存');
+          setTimeout(() => {
+            setMessage('');
+          }, 2000);
+        }
       } else {
         setMessage('保存设置失败');
       }
     } catch (error) {
       console.error('Error saving settings:', error);
-      setMessage('保存设置失败');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('迁移失败')) {
+        setMessage(`保存失败: ${errorMessage}`);
+      } else {
+        setMessage('保存设置失败');
+      }
+      setTimeout(() => {
+        setMessage('');
+      }, 5000);
     } finally {
       setSaving(false);
     }
@@ -230,6 +267,95 @@ export function Settings({ onClose }: SettingsProps) {
               </div>
               <p className="setting-description">
                 启用后，将自动打开开发者工具控制台，方便查看调试日志和排查问题。
+              </p>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <h3>数据存储设置</h3>
+            <div className="setting-item">
+              <label>
+                <span>数据库路径</span>
+              </label>
+              <div className="setting-control path-control">
+                <input
+                  type="text"
+                  value={settings.databasePath || ''}
+                  onChange={(e) => handleChange('databasePath', e.target.value)}
+                  placeholder="留空使用默认路径"
+                  className="path-input"
+                />
+                <button
+                  type="button"
+                  className="btn-select-folder"
+                  onClick={async () => {
+                    const selectedPath = await window.electronAPI.selectFolder?.({
+                      title: '选择数据库保存文件夹',
+                      defaultPath: settings?.databasePath || undefined,
+                    });
+                    if (selectedPath && settings) {
+                      handleChange('databasePath', selectedPath);
+                    }
+                  }}
+                >
+                  浏览...
+                </button>
+                <button
+                  type="button"
+                  className="btn-reset-path"
+                  onClick={() => handleChange('databasePath', '')}
+                  title="重置为默认路径"
+                >
+                  重置
+                </button>
+              </div>
+              <p className="setting-description">
+                自定义数据库文件保存位置。留空则使用默认路径（%APPDATA%\活动分析器\activity.db）。
+                <br />
+                <strong>注意：</strong>修改数据库路径后需要重启应用才能生效。
+              </p>
+            </div>
+
+            <div className="setting-item">
+              <label>
+                <span>日志路径</span>
+              </label>
+              <div className="setting-control path-control">
+                <input
+                  type="text"
+                  value={settings.logPath || ''}
+                  onChange={(e) => handleChange('logPath', e.target.value)}
+                  placeholder="留空使用默认路径"
+                  className="path-input"
+                />
+                <button
+                  type="button"
+                  className="btn-select-folder"
+                  onClick={async () => {
+                    const selectedPath = await window.electronAPI.selectFolder?.({
+                      title: '选择日志保存文件夹',
+                      defaultPath: settings?.logPath || undefined,
+                    });
+                    if (selectedPath && settings) {
+                      handleChange('logPath', selectedPath);
+                    }
+                  }}
+                >
+                  浏览...
+                </button>
+                <button
+                  type="button"
+                  className="btn-reset-path"
+                  onClick={() => handleChange('logPath', '')}
+                  title="重置为默认路径"
+                >
+                  重置
+                </button>
+              </div>
+              <p className="setting-description">
+                自定义日志文件保存位置。留空则使用默认路径（%APPDATA%\活动分析器\logs\）。
+                <br />
+                修改后立即生效，新的日志将保存到新位置。
               </p>
             </div>
           </div>

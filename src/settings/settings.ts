@@ -9,6 +9,8 @@ export interface AppSettings {
   minimizeToTray: boolean; // 最小化到托盘
   closeToTray: boolean; // 关闭到托盘
   debugMode: boolean; // 调试模式（打开开发者工具）
+  databasePath?: string; // 自定义数据库路径（为空时使用默认路径）
+  logPath?: string; // 自定义日志路径（为空时使用默认路径）
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -18,6 +20,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   minimizeToTray: true,
   closeToTray: true,
   debugMode: false, // 默认关闭调试模式
+  databasePath: '', // 空字符串表示使用默认路径
+  logPath: '', // 空字符串表示使用默认路径
 };
 
 export class Settings {

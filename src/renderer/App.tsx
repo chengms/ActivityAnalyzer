@@ -28,6 +28,7 @@ declare global {
       getSettings?: () => Promise<any>;
       updateSettings?: (updates: any) => Promise<boolean>;
       getAutoStartStatus?: () => Promise<boolean>;
+      selectFolder?: (options?: { title?: string; defaultPath?: string }) => Promise<string | null>;
       onOpenSettings?: (callback: () => void) => (() => void) | undefined;
       startTracking?: () => Promise<boolean>;
       stopTracking?: () => Promise<boolean>;

@@ -7,6 +7,8 @@ export interface AppSettings {
   minimizeToTray: boolean;
   closeToTray: boolean;
   debugMode: boolean;
+  databasePath?: string;
+  logPath?: string;
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -54,5 +56,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 日志相关
   getLogFilePath: () => ipcRenderer.invoke('get-log-file-path') as Promise<string>,
   getLogDirPath: () => ipcRenderer.invoke('get-log-dir-path') as Promise<string>,
+  // 文件夹选择
+  selectFolder: (options?: { title?: string; defaultPath?: string }) => 
+    ipcRenderer.invoke('select-folder', options) as Promise<string | null>,
 });
 

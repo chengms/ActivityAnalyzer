@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, powerMonitor, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, powerMonitor, shell, dialog } from 'electron';
 import path from 'path';
 import { Database } from '../tracker/database';
 import { ActivityTracker } from '../tracker/tracker';
@@ -181,13 +181,13 @@ app.setPath('userCache', path.join(app.getPath('userData'), 'cache'));
 
 app.whenReady().then(async () => {
   try {
-    // 更新日志目录到用户数据目录
-    logger.updateLogDir();
-    logger.info('App ready, initializing...');
-    
-    // 初始化设置
-    logger.info('Initializing settings...');
+    // 初始化设置（需要先初始化，因为 Database 和 Logger 需要读取设置）
     settings = new Settings();
+    
+    // 更新日志目录（使用设置中的路径）
+    const logPath = settings.getSetting('logPath');
+    logger.updateLogDir(logPath);
+    logger.info('App ready, initializing...');
     logger.info('Settings initialized');
     
     // 初始化自动启动器
@@ -208,11 +208,12 @@ app.whenReady().then(async () => {
       logger.error('Error handling auto start:', error);
     }
 
-    // 初始化数据库
+    // 初始化数据库（使用设置中的路径）
     logger.info('Initializing database...');
-    database = new Database();
+    const dbPath = settings.getSetting('databasePath');
+    database = new Database(dbPath);
     database.init();
-    logger.info('Database initialized');
+    logger.info(`Database initialized at: ${database.getDbPath()}`);
 
     // 初始化活动追踪器（使用设置中的检测间隔）
     logger.info('Initializing tracker...');
@@ -397,6 +398,170 @@ ipcMain.handle('update-settings', async (event, updates: Partial<AppSettings>) =
       }
     }
     
+    // 如果更新了数据库路径，迁移数据库文件
+    if (updates.databasePath !== undefined) {
+      const oldDbPath = database ? database.getDbPath() : null;
+      const newDbPath = updates.databasePath.trim() || '';
+      
+      // 计算新的数据库路径
+      let targetDbPath: string;
+      if (newDbPath === '') {
+        // 重置为默认路径
+        const userDataPath = app.getPath('userData');
+        targetDbPath = path.join(userDataPath, 'activity.db');
+      } else {
+        if (path.isAbsolute(newDbPath)) {
+          if (newDbPath.toLowerCase().endsWith('.db')) {
+            targetDbPath = newDbPath;
+          } else {
+            targetDbPath = path.join(newDbPath, 'activity.db');
+          }
+        } else {
+          targetDbPath = path.join(newDbPath, 'activity.db');
+        }
+      }
+      
+      // 如果路径确实变更了，且旧数据库文件存在，则迁移
+      if (oldDbPath && oldDbPath !== targetDbPath && fs.existsSync(oldDbPath)) {
+        try {
+          // 确保目标目录存在
+          const targetDir = path.dirname(targetDbPath);
+          if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+          }
+          
+          // 如果目标文件已存在，先备份
+          if (fs.existsSync(targetDbPath)) {
+            const backupPath = targetDbPath + '.backup.' + Date.now();
+            fs.copyFileSync(targetDbPath, backupPath);
+            logger.info(`Backed up existing database to: ${backupPath}`);
+          }
+          
+          // 关闭当前数据库连接
+          if (database) {
+            try {
+              database.close();
+              logger.info('Database connection closed for migration');
+            } catch (e) {
+              logger.warn('Error closing database connection:', e);
+              // 继续尝试迁移，可能数据库已经关闭
+            }
+          }
+          
+          // 移动数据库文件
+          fs.copyFileSync(oldDbPath, targetDbPath);
+          logger.info(`Database file copied from ${oldDbPath} to ${targetDbPath}`);
+          
+          // 验证新文件是否有效（简单检查文件大小）
+          const oldStats = fs.statSync(oldDbPath);
+          const newStats = fs.statSync(targetDbPath);
+          if (newStats.size === oldStats.size && newStats.size > 0) {
+            // 删除旧文件（仅在确认新文件有效后）
+            fs.unlinkSync(oldDbPath);
+            logger.info(`Old database file removed: ${oldDbPath}`);
+          } else {
+            throw new Error('Database file size mismatch after copy');
+          }
+          
+          logger.info('Database migration completed successfully');
+          
+          // 尝试重新初始化数据库（使用新路径）
+          // 注意：由于路径已变更，需要重新创建 Database 实例
+          // 但为了安全，我们不在迁移后立即重新初始化，而是提示用户重启
+          // 这样可以避免在迁移过程中出现数据不一致的问题
+        } catch (error) {
+          logger.error('Error migrating database:', error);
+          
+          // 尝试重新打开旧数据库（如果迁移失败）
+          if (database && oldDbPath && fs.existsSync(oldDbPath)) {
+            try {
+              database.init();
+              logger.info('Re-opened database at old location after migration failure');
+            } catch (reopenError) {
+              logger.error('Failed to re-open database:', reopenError);
+            }
+          }
+          
+          // 回滚设置
+          const currentSettings = settings.getSettings();
+          settings.updateSetting('databasePath', currentSettings.databasePath || '');
+          throw new Error(`数据库迁移失败: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      
+      if (updates.databasePath !== undefined) {
+        logger.warn('Database path changed. Application restart required to apply the change.');
+      }
+    }
+    
+    // 如果更新了日志路径，迁移日志目录
+    if (updates.logPath !== undefined) {
+      const oldLogDir = logger.getLogDirPath();
+      const newLogPath = updates.logPath.trim() || '';
+      
+      // 计算新的日志目录路径
+      let targetLogDir: string;
+      if (newLogPath === '') {
+        // 重置为默认路径
+        const userDataPath = app.getPath('userData');
+        targetLogDir = path.join(userDataPath, 'logs');
+      } else {
+        if (path.isAbsolute(newLogPath)) {
+          targetLogDir = path.join(newLogPath, 'logs');
+        } else {
+          targetLogDir = path.join(newLogPath, 'logs');
+        }
+      }
+      
+      // 如果路径确实变更了，且旧日志目录存在，则迁移
+      if (oldLogDir !== targetLogDir && fs.existsSync(oldLogDir)) {
+        try {
+          // 确保目标目录存在
+          if (!fs.existsSync(targetLogDir)) {
+            fs.mkdirSync(targetLogDir, { recursive: true });
+          }
+          
+          // 复制所有日志文件
+          const logFiles = fs.readdirSync(oldLogDir).filter(file => 
+            file.startsWith('app-') && file.endsWith('.log')
+          );
+          
+          if (logFiles.length > 0) {
+            for (const file of logFiles) {
+              const oldFilePath = path.join(oldLogDir, file);
+              const newFilePath = path.join(targetLogDir, file);
+              
+              // 如果目标文件已存在，跳过（保留较新的）
+              if (fs.existsSync(newFilePath)) {
+                const oldStats = fs.statSync(oldFilePath);
+                const newStats = fs.statSync(newFilePath);
+                if (oldStats.mtime > newStats.mtime) {
+                  fs.copyFileSync(oldFilePath, newFilePath);
+                }
+              } else {
+                fs.copyFileSync(oldFilePath, newFilePath);
+              }
+            }
+            logger.info(`Migrated ${logFiles.length} log files from ${oldLogDir} to ${targetLogDir}`);
+          }
+          
+          // 更新日志目录
+          logger.updateLogDir(updates.logPath);
+          logger.info(`Log directory updated to: ${logger.getLogDirPath()}`);
+        } catch (error) {
+          logger.error('Error migrating log directory:', error);
+          // 回滚设置
+          const currentSettings = settings.getSettings();
+          settings.updateSetting('logPath', currentSettings.logPath || '');
+          throw new Error(`日志目录迁移失败: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      } else {
+        // 路径未变更或旧目录不存在，直接更新
+        logger.updateLogDir(updates.logPath);
+        logger.info(`Log directory updated to: ${logger.getLogDirPath()}`);
+      }
+    }
+    
     return true;
   } catch (error) {
     logger.error('Error updating settings:', error);
@@ -407,6 +572,23 @@ ipcMain.handle('update-settings', async (event, updates: Partial<AppSettings>) =
 ipcMain.handle('get-auto-start-status', async () => {
   if (!autoLauncher) return false;
   return await autoLauncher.isEnabled();
+});
+
+// 选择文件夹对话框
+ipcMain.handle('select-folder', async (event, options?: { title?: string; defaultPath?: string }) => {
+  if (!mainWindow) return null;
+  
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: options?.title || '选择文件夹',
+    defaultPath: options?.defaultPath,
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+  
+  return result.filePaths[0];
 });
 
 // 日志相关 IPC
