@@ -76,6 +76,7 @@
       "**/node_modules/active-win/**/*"
     ],
     "asar": true,
+    "compression": "normal",
     "win": {
       "target": [
         {

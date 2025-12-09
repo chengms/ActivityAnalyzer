@@ -28,14 +28,24 @@ npm run pack
 **⚠️ 如果遇到网络问题（无法从 GitHub 下载 Electron）：**
 
 ```powershell
-# 使用打包脚本（自动配置国内镜像）
+# 使用打包脚本（自动配置国内镜像，智能清理）
 .\pack-with-mirror.ps1 dist:win:portable
+
+# 强制清理所有构建输出（包括 dist 和 Vite 缓存）
+.\pack-with-mirror.ps1 dist:win:portable --force
 
 # 或者手动设置环境变量
 $env:ELECTRON_MIRROR = "https://npmmirror.com/mirrors/electron/"
 $env:ELECTRON_BUILDER_BINARIES_MIRROR = "https://npmmirror.com/mirrors/electron-builder-binaries/"
 npm run dist:win:portable
 ```
+
+**✨ 智能清理功能：**
+- 脚本会自动检测源代码是否更改
+- 如果源代码未更改，会保留 `dist/` 目录和 Vite 缓存，加快构建速度
+- 如果源代码或配置文件已更改，会自动清理 `dist/` 目录
+- 打包输出（`release/`）总是会被清理（因为打包过程会重新生成）
+- 使用 `--force` 参数可以强制清理所有构建输出
 
 ## 🎯 打包选项
 
@@ -371,6 +381,63 @@ if ($icon) {
 1. 检查 `files` 配置，排除不需要的文件
 2. 使用 `asar` 打包（默认启用）
 3. 排除开发依赖
+
+### 问题 2.1: 打包速度慢（需要几分钟）
+
+**症状：** 打包便携版时需要等待几分钟，感觉速度很慢
+
+**原因：** 这是正常现象，打包过程包含多个耗时步骤：
+
+1. **复制文件到临时目录**（~10-30秒）
+   - 复制 `dist/` 目录中的所有文件
+   - 复制 `node_modules/` 中的依赖（包括 `better-sqlite3`、`active-win` 等原生模块）
+   - 复制 Electron 运行时文件
+
+2. **打包 asar 文件**（~30-60秒）
+   - 将应用代码和依赖打包成单个 `app.asar` 文件
+   - 压缩和优化文件结构
+
+3. **处理原生模块**（~20-40秒）
+   - 从 asar 中解包 `better-sqlite3` 和 `active-win`（因为它们是原生模块）
+   - 复制到 `app.asar.unpacked/` 目录
+
+4. **复制 Electron 运行时**（~20-40秒）
+   - 复制 Electron 二进制文件（~100MB）
+   - 复制 Chromium 运行时文件
+
+5. **生成便携版可执行文件**（~30-60秒）
+   - 将所有文件打包成单个 `.exe` 文件
+   - 压缩和优化
+
+**总耗时：** 通常需要 **2-5 分钟**，取决于：
+- 硬件性能（CPU、内存、磁盘速度）
+- 文件数量和大小
+- 是否首次打包（需要下载 Electron）
+
+**优化建议：**
+
+1. **保留 electron-builder 缓存**（已优化）
+   - 脚本已配置保留缓存，避免重复下载 Electron
+   - 缓存位置：`%LOCALAPPDATA%\electron-builder\Cache`
+
+2. **使用 SSD 硬盘**
+   - SSD 可以显著提升文件复制速度
+
+3. **关闭杀毒软件实时扫描**
+   - 临时关闭实时扫描可以加快文件操作速度
+
+4. **使用 `compression: "normal"`**（已配置）
+   - 平衡压缩率和打包速度
+
+5. **耐心等待**
+   - 打包过程是正常的，脚本会显示进度和耗时
+   - 首次打包可能需要更长时间（需要下载 Electron）
+
+**提示：** 如果打包时间超过 10 分钟，可能是：
+- 网络问题（正在下载 Electron）
+- 磁盘空间不足
+- 杀毒软件干扰
+- 硬件性能不足
 
 ### 问题 3: 打包失败 - 网络连接错误（无法下载 Electron）
 
