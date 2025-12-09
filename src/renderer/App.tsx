@@ -66,6 +66,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<'main' | 'ranking'>('main');
   const [showChart, setShowChart] = useState<boolean>(false);
   const lastCheckedDateRef = useRef<string>(format(new Date(), 'yyyy-MM-dd'));
+  const wasShowingTimelineRef = useRef<boolean>(false);
 
   // 使用 useCallback 包装 loadData，确保在 selectedDate 变化时正确更新
   const loadData = useCallback(async () => {
@@ -105,6 +106,26 @@ function App() {
       });
     }
   }, [loadData, selectedDate, showTimelineFromSidebar]);
+
+  // 当从时间线页面返回主页时，自动刷新数据
+  useEffect(() => {
+    const isShowingTimeline = showTimelineDetail || showTimelineFromSidebar;
+    
+    // 如果正在显示时间线，记录状态
+    if (isShowingTimeline) {
+      wasShowingTimelineRef.current = true;
+    } 
+    // 如果之前显示时间线，现在关闭了，且当前在主页面，刷新数据
+    else if (wasShowingTimelineRef.current && activeTab === 'main') {
+      wasShowingTimelineRef.current = false;
+      // 延迟一小段时间确保状态已更新，然后刷新数据
+      const timer = setTimeout(() => {
+        console.log('[App] 从时间线返回主页，自动刷新数据');
+        loadData();
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [showTimelineDetail, showTimelineFromSidebar, activeTab, loadData]);
   
   // 监听打开设置事件
   useEffect(() => {
@@ -378,7 +399,12 @@ function App() {
     setShowTimelineDetail(false);
     setShowReportDialog(false);
     setActiveTab('main');
-  }, []);
+    // 返回主页时自动刷新数据
+    setTimeout(() => {
+      console.log('[App] 返回主页，自动刷新数据');
+      loadData();
+    }, 100);
+  }, [loadData]);
 
   // 直接使用已缓存的回调函数
 

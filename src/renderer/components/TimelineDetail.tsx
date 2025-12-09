@@ -574,11 +574,22 @@ const TimelineItem = React.memo(({ record, isSwitch, index }: {
 }, (prevProps, nextProps) => {
   // 自定义比较函数，只在关键属性变化时重新渲染
   // 返回 true 表示 props 相同，不需要重新渲染
-  // 简化比较逻辑，提高性能
+  // 返回 false 表示 props 不同，需要重新渲染
+  
+  // 比较记录 ID（最重要）
   if (prevProps.record.id !== nextProps.record.id) return false;
+  
+  // 比较关键字段，确保数据正确显示
+  if (prevProps.record.commandLine !== nextProps.record.commandLine) return false;
+  if (prevProps.record.windowTitle !== nextProps.record.windowTitle) return false;
+  if (prevProps.record.processPath !== nextProps.record.processPath) return false;
+  if (prevProps.record.appName !== nextProps.record.appName) return false;
   if (prevProps.record.startTime !== nextProps.record.startTime) return false;
+  if (prevProps.record.endTime !== nextProps.record.endTime) return false;
+  if (prevProps.record.duration !== nextProps.record.duration) return false;
   if (prevProps.isSwitch !== nextProps.isSwitch) return false;
-  // 不比较 index，因为 index 变化不应该触发重新渲染
+  
+  // 所有关键字段都相同，不需要重新渲染
   return true;
 });
 
