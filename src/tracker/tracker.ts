@@ -44,8 +44,8 @@ export class ActivityTracker {
   private lastCheckTime: Date | null = null; // 上次检查时间，用于准确计算窗口切换时间
   private isSaving: boolean = false; // 防止并发保存的锁
   // 缓存进程详细信息，减少重复的 PowerShell 调用
-  // 注意：只缓存架构和命令行（对于同一可执行文件通常是相同的），不缓存 PID（每个进程实例都不同）
-  private processInfoCache: Map<string, { info: { architecture?: string; commandLine?: string } | null; timestamp: number }> = new Map();
+  // 注意：只缓存架构（对于同一可执行文件通常是相同的），不缓存 commandLine（不同实例可能有不同参数）和 PID（每个进程实例都不同）
+  private processInfoCache: Map<string, { info: { architecture?: string } | null; timestamp: number }> = new Map();
   private readonly PROCESS_INFO_CACHE_TTL = 30000; // 缓存30秒
   private readonly DETAILED_INFO_ENABLED = true; // 是否启用详细进程信息获取（可配置）
 
@@ -298,16 +298,22 @@ export class ActivityTracker {
           this.currentStartTime = this.lastCheckTime || checkTime;
           this.currentRecordId = null;
           
-          // 尝试获取标签页信息（异步，不阻塞主流程）
-          this.getTabInfo(processInfo.appName, activeWindow).then(tabInfo => {
-            if (tabInfo) {
-              this.currentTabTitle = tabInfo.title;
-              this.currentTabUrl = tabInfo.url;
-              console.log(`[TabInfo] Got tab: ${tabInfo.title || 'N/A'}`);
-            }
-          }).catch(err => {
-            console.error('[TabInfo] Error getting tab info:', err);
-          });
+          // 先清空标签页信息，避免非浏览器应用继承之前浏览器的标签页信息
+          this.currentTabTitle = null;
+          this.currentTabUrl = null;
+          
+          // 尝试获取标签页信息（只对浏览器应用，异步，不阻塞主流程）
+          if (this.isBrowserApp(processInfo.appName)) {
+            this.getTabInfo(processInfo.appName, activeWindow).then(tabInfo => {
+              if (tabInfo) {
+                this.currentTabTitle = tabInfo.title;
+                this.currentTabUrl = tabInfo.url;
+                console.log(`[TabInfo] Got tab: ${tabInfo.title || 'N/A'}`);
+              }
+            }).catch(err => {
+              console.error('[TabInfo] Error getting tab info:', err);
+            });
+          }
           
           console.log(`[Activity] Started tracking: ${processInfo.appName} - ${activeWindow} (PID: ${processInfo.processId || 'N/A'})`);
         } finally {
@@ -377,9 +383,9 @@ export class ActivityTracker {
       processId: this.currentProcessInfo?.processId,
       architecture: this.currentProcessInfo?.architecture,
       commandLine: this.currentProcessInfo?.commandLine,
-      // 添加标签页信息
-      tabTitle: this.currentTabTitle || undefined,
-      tabUrl: this.currentTabUrl || undefined,
+      // 添加标签页信息（只对浏览器应用保存）
+      tabTitle: (this.isBrowserApp(this.currentApp) && this.currentTabTitle) ? this.currentTabTitle : undefined,
+      tabUrl: (this.isBrowserApp(this.currentApp) && this.currentTabUrl) ? this.currentTabUrl : undefined,
     };
 
     try {
@@ -443,9 +449,9 @@ export class ActivityTracker {
           processId: this.currentProcessInfo?.processId,
           architecture: this.currentProcessInfo?.architecture,
           commandLine: this.currentProcessInfo?.commandLine,
-          // 添加标签页信息
-          tabTitle: this.currentTabTitle || undefined,
-          tabUrl: this.currentTabUrl || undefined,
+          // 添加标签页信息（只对浏览器应用保存）
+          tabTitle: (this.isBrowserApp(this.currentApp) && this.currentTabTitle) ? this.currentTabTitle : undefined,
+          tabUrl: (this.isBrowserApp(this.currentApp) && this.currentTabUrl) ? this.currentTabUrl : undefined,
         };
         const recordId = this.database.insertActivity(record);
         this.currentRecordId = recordId || null;
@@ -562,25 +568,23 @@ export class ActivityTracker {
     if (processPath) {
       processName = path.basename(processPath, path.extname(processPath));
       
-      // 使用缓存避免重复的 PowerShell 调用
+      // 使用缓存避免重复的 PowerShell 调用（只缓存架构，不缓存 commandLine）
       if (getDetailedInfo) {
         const cacheKey = processPath;
         const cached = this.processInfoCache.get(cacheKey);
         const now = Date.now();
         
+        // 如果缓存命中，使用缓存的架构（架构对于同一可执行文件通常是相同的）
         if (cached && (now - cached.timestamp) < this.PROCESS_INFO_CACHE_TTL) {
-          // 使用缓存的结果（只缓存架构和命令行，不缓存 PID）
           architecture = cached.info?.architecture;
-          commandLine = cached.info?.commandLine;
-          // PID 使用传入的 processId（来自 active-win，是当前活动窗口的准确 PID）
-          // 如果 processId 未提供，保持 undefined（不进行额外的 PowerShell 查询，避免返回错误的进程实例）
-          // 这样可以确保对于多实例应用（如多个 Chrome 窗口），我们使用的是正确的进程实例
-        } else {
-          // 使用 PowerShell 获取进程详细信息（PID、架构、命令行）
-          try {
-            // 如果已传入 processId（来自 active-win），直接使用；否则获取当前活动窗口的 PID
-            let targetPid = pid;
-            let psScript: string;
+        }
+        
+        // 无论缓存是否命中，都需要查询 commandLine 和 PID
+        // 因为同一可执行文件的不同实例可能有不同的命令行参数和 PID
+        try {
+          // 如果已传入 processId（来自 active-win），直接使用；否则获取当前活动窗口的 PID
+          let targetPid = pid;
+          let psScript: string;
             
             if (targetPid) {
               // 使用传入的 PID（来自 active-win，是当前活动窗口的准确 PID）
@@ -613,9 +617,9 @@ if ($proc) {
   Write-Output "$pid|$procArch|$cmdLine"
 }
 `;
-            } else {
-              // 如果没有传入 PID，获取当前活动窗口的 PID（而不是通过路径查找第一个匹配的进程）
-              psScript = `
+          } else {
+            // 如果没有传入 PID，获取当前活动窗口的 PID（而不是通过路径查找第一个匹配的进程）
+            psScript = `
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -661,46 +665,54 @@ if ($proc) {
   Write-Output "$pid|$procArch|$cmdLine"
 }
 `;
-            }
-            
-            const result = execSync(
-              `powershell -ExecutionPolicy Bypass -NoProfile -Command "${psScript}"`,
-              { encoding: 'utf-8', timeout: 2000, stdio: ['pipe', 'pipe', 'ignore'] as const }
-            );
-            const output = result.toString().trim();
-            if (output) {
-              const parts = output.split('|');
-              if (parts.length >= 1 && parts[0]) {
-                const parsedPid = parseInt(parts[0], 10);
-                // 验证解析结果是有效数字，避免 NaN
-                if (!isNaN(parsedPid) && isFinite(parsedPid) && parsedPid > 0) {
-                  pid = parsedPid;
-                }
+          }
+          
+          const result = execSync(
+            `powershell -ExecutionPolicy Bypass -NoProfile -Command "${psScript}"`,
+            { encoding: 'utf-8', timeout: 2000, stdio: ['pipe', 'pipe', 'ignore'] as const }
+          );
+          const output = result.toString().trim();
+          if (output) {
+            const parts = output.split('|');
+            if (parts.length >= 1 && parts[0]) {
+              const parsedPid = parseInt(parts[0], 10);
+              // 验证解析结果是有效数字，避免 NaN
+              if (!isNaN(parsedPid) && isFinite(parsedPid) && parsedPid > 0) {
+                pid = parsedPid;
               }
-              if (parts.length >= 2 && parts[1]) {
+            }
+            if (parts.length >= 2 && parts[1]) {
+              // 如果缓存中没有架构，才更新（避免覆盖已缓存的架构）
+              if (!architecture) {
                 architecture = parts[1];
               }
-              if (parts.length >= 3 && parts[2]) {
-                commandLine = parts[2];
-              }
-              
-              // 缓存结果（只缓存架构和命令行，不缓存 PID，因为 PID 是进程实例特定的）
+            }
+            if (parts.length >= 3 && parts[2]) {
+              // commandLine 总是使用最新查询的结果（不缓存）
+              commandLine = parts[2];
+            }
+            
+            // 缓存结果（只缓存架构，不缓存 commandLine 和 PID）
+            // commandLine 不缓存，因为同一可执行文件的不同实例可能有不同的命令行参数
+            // PID 不缓存，因为每个进程实例都有不同的 PID
+            // 只有在架构还没有被缓存时才更新缓存
+            if (architecture && (!cached || !cached.info?.architecture)) {
               this.processInfoCache.set(cacheKey, {
-                info: { architecture, commandLine },
+                info: { architecture },
                 timestamp: now
               });
-              
-              // 限制缓存大小，避免内存泄漏
-              if (this.processInfoCache.size > 100) {
-                const firstKey = this.processInfoCache.keys().next().value;
-                if (firstKey) {
-                  this.processInfoCache.delete(firstKey);
-                }
+            }
+            
+            // 限制缓存大小，避免内存泄漏
+            if (this.processInfoCache.size > 100) {
+              const firstKey = this.processInfoCache.keys().next().value;
+              if (firstKey) {
+                this.processInfoCache.delete(firstKey);
               }
             }
-          } catch (error) {
-            // 忽略错误，使用默认值
           }
+        } catch (error) {
+          // 忽略错误，使用默认值
         }
       }
     }
@@ -1094,6 +1106,11 @@ try {
   // 从窗口标题提取标签页标题
   private extractTabTitleFromWindow(windowTitle: string, appName: string): string | null {
     if (!windowTitle || windowTitle === 'Unknown Window') {
+      return null;
+    }
+
+    // 只对浏览器应用提取标签页标题
+    if (!this.isBrowserApp(appName)) {
       return null;
     }
 
