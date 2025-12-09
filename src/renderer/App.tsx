@@ -56,6 +56,7 @@ function App() {
   const [showTimelineDetail, setShowTimelineDetail] = useState<boolean>(false);
   const [showTimelineFromSidebar, setShowTimelineFromSidebar] = useState<boolean>(false);
   const [timelineRecords, setTimelineRecords] = useState<any[]>([]);
+  const [filterAppName, setFilterAppName] = useState<string | null>(null); // 筛选的应用名称
   const [showReportViewer, setShowReportViewer] = useState<boolean>(false);
   const [reportContent, setReportContent] = useState<string>('');
   const [reportDate, setReportDate] = useState<string>('');
@@ -316,6 +317,29 @@ function App() {
     }
   };
 
+  // 处理图表点击，跳转到时间线并筛选应用
+  const handleChartSegmentClick = async (appName: string) => {
+    setFilterAppName(appName);
+    setShowTimelineFromSidebar(true);
+    setShowChart(false);
+    setShowSettings(false);
+    setShowReportHistory(false);
+    setShowReportViewer(false);
+    setActiveTab('main');
+    // 加载时间线数据
+    if (window.electronAPI.getActivityTimeline) {
+      try {
+        const records = await window.electronAPI.getActivityTimeline(selectedDate);
+        setTimelineRecords(records);
+      } catch (error) {
+        console.error('Error loading timeline:', error);
+        setTimelineRecords([]);
+      }
+    } else {
+      setTimelineRecords([]);
+    }
+  };
+
   const handleViewTimelineDetail = async () => {
     if (window.electronAPI.getActivityTimeline) {
       try {
@@ -534,7 +558,11 @@ function App() {
       {showTimelineDetail && (
         <TimelineDetail 
           records={timelineRecords} 
-          onClose={() => setShowTimelineDetail(false)} 
+          onClose={() => {
+            setShowTimelineDetail(false);
+            setFilterAppName(null);
+          }}
+          filterAppName={filterAppName}
         />
       )}
 
@@ -558,7 +586,7 @@ function App() {
                 <div className="panel-header">
                   <h2>应用使用时长分布 - {selectedDate}</h2>
                 </div>
-                <ActivityChart key={selectedDate} data={dailySummary.records} />
+                <ActivityChart key={selectedDate} data={dailySummary.records} onSegmentClick={handleChartSegmentClick} />
               </div>
               <div className="content-panel" style={{ marginTop: '20px' }}>
                 <div className="panel-header">
@@ -611,8 +639,12 @@ function App() {
           dailySummary && timelineRecords.length > 0 ? (
             <TimelineDetail 
               records={timelineRecords} 
-              onClose={() => setShowTimelineFromSidebar(false)}
+              onClose={() => {
+                setShowTimelineFromSidebar(false);
+                setFilterAppName(null);
+              }}
               asPage={true}
+              filterAppName={filterAppName}
             />
           ) : (
             <div className="empty-state">
@@ -650,7 +682,7 @@ function App() {
             <div className="charts-section">
               <div className="chart-container">
                 <h2>应用使用时长分布</h2>
-                <ActivityChart key={selectedDate} data={dailySummary.records} />
+                <ActivityChart key={selectedDate} data={dailySummary.records} onSegmentClick={handleChartSegmentClick} />
               </div>
             </div>
 

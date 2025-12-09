@@ -7,6 +7,7 @@ interface TimelineDetailProps {
   records: ActivityRecord[];
   onClose: () => void;
   asPage?: boolean; // 是否作为页面显示（而不是弹窗）
+  filterAppName?: string | null; // 筛选的应用名称（可选）
 }
 
 // 缓存日期格式化函数的结果
@@ -57,7 +58,7 @@ const BATCH_SIZE = 15; // 每批加载的记录数（进一步减少以提高性
 const MAX_SORT_SIZE = 10000; // 超过此数量时使用简化排序
 const MAX_DISPLAY_COUNT = 100; // 最大显示记录数（减少以提高性能）
 
-export function TimelineDetail({ records, onClose, asPage = false }: TimelineDetailProps) {
+export function TimelineDetail({ records, onClose, asPage = false, filterAppName }: TimelineDetailProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [displayRecords, setDisplayRecords] = useState<ActivityRecord[]>([]);
   const [switchCount, setSwitchCount] = useState(0);
@@ -72,6 +73,17 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
   const [useTimeRange, setUseTimeRange] = useState(false);
   const [startDateTime, setStartDateTime] = useState<string>('');
   const [endDateTime, setEndDateTime] = useState<string>('');
+  
+  // 搜索和筛选
+  const [searchText, setSearchText] = useState<string>('');
+  const [filteredAppName, setFilteredAppName] = useState<string | null>(filterAppName || null);
+  
+  // 当 filterAppName prop 变化时，更新内部状态
+  React.useEffect(() => {
+    if (filterAppName !== undefined) {
+      setFilteredAppName(filterAppName);
+    }
+  }, [filterAppName]);
   
   // 初始化：默认设置为今天的时间范围（从00:00:00到当前时间）
   React.useEffect(() => {
@@ -134,13 +146,34 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
     
     let filteredRecords = records;
     
-    // 时间段过滤
+    // 应用名称筛选
+    if (filteredAppName) {
+      filteredRecords = filteredRecords.filter(record => record.appName === filteredAppName);
+    }
+    
+    // 搜索过滤（搜索应用名称、窗口标题、进程路径、命令行等）
+    if (searchText.trim()) {
+      const searchLower = searchText.toLowerCase().trim();
+      filteredRecords = filteredRecords.filter(record => {
+        return (
+          record.appName.toLowerCase().includes(searchLower) ||
+          (record.windowTitle && record.windowTitle.toLowerCase().includes(searchLower)) ||
+          (record.processPath && record.processPath.toLowerCase().includes(searchLower)) ||
+          (record.processName && record.processName.toLowerCase().includes(searchLower)) ||
+          (record.commandLine && record.commandLine.toLowerCase().includes(searchLower)) ||
+          (record.tabTitle && record.tabTitle.toLowerCase().includes(searchLower)) ||
+          (record.tabUrl && record.tabUrl.toLowerCase().includes(searchLower))
+        );
+      });
+    }
+    
+    // 时间段过滤（在应用名称筛选和搜索过滤之后）
     if (useTimeRange && startDateTime && endDateTime) {
       try {
         const startTime = new Date(startDateTime).getTime();
         const endTime = new Date(endDateTime).getTime();
         
-        filteredRecords = records.filter(record => {
+        filteredRecords = filteredRecords.filter(record => {
           const recordTime = new Date(record.startTime).getTime();
           return recordTime >= startTime && recordTime <= endTime;
         });
@@ -150,7 +183,7 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
     } else {
       // 如果没有选择时间段，只显示到当前时间点的记录
       const now = new Date().getTime();
-      filteredRecords = records.filter(record => {
+      filteredRecords = filteredRecords.filter(record => {
         const recordTime = new Date(record.startTime).getTime();
         return recordTime <= now; // 只包含当前时间点及之前的记录
       });
@@ -220,7 +253,7 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
     });
 
     return { sortedRecords: sorted, switchCount: count };
-  }, [records, sortOrder, useTimeRange, startDateTime, endDateTime]);
+  }, [records, sortOrder, useTimeRange, startDateTime, endDateTime, filteredAppName, searchText]);
 
   // 使用 useEffect 异步更新显示，避免阻塞渲染
   useEffect(() => {
@@ -228,6 +261,7 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
       setDisplayRecords([]);
       setSwitchCount(0);
       setDisplayCount(INITIAL_DISPLAY_COUNT);
+      displayCountRef.current = INITIAL_DISPLAY_COUNT; // 同步更新 ref
       setIsProcessing(false);
       return;
     }
@@ -257,11 +291,13 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
         scheduleUpdate(() => {
           setDisplayRecords(initialRecords);
           setDisplayCount(INITIAL_DISPLAY_COUNT);
+          displayCountRef.current = INITIAL_DISPLAY_COUNT; // 同步更新 ref
           setIsProcessing(false);
         });
       } else {
         setDisplayRecords([]);
         setDisplayCount(INITIAL_DISPLAY_COUNT);
+        displayCountRef.current = INITIAL_DISPLAY_COUNT; // 同步更新 ref
         setIsProcessing(false);
       }
     };
@@ -277,12 +313,18 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
   
   React.useEffect(() => {
     sortedRecordsRef.current = processedData.sortedRecords;
-  }, [processedData.sortedRecords]);
+    // 当 processedData 变化时（比如切换排序），重置 displayCountRef
+    // 但只在 displayCount 被重置时同步更新 ref
+    if (displayCount === INITIAL_DISPLAY_COUNT) {
+      displayCountRef.current = INITIAL_DISPLAY_COUNT;
+    }
+  }, [processedData.sortedRecords, displayCount]);
 
   // 加载更多记录 - 分批加载，避免卡顿
   const loadMore = React.useCallback(() => {
+    // 使用最新的 displayCount 状态，确保与当前显示同步
     const sortedRecords = sortedRecordsRef.current;
-    const currentDisplayCount = displayCountRef.current;
+    const currentDisplayCount = displayCount; // 使用状态而不是 ref
     
     if (isLoadingMoreRef.current || currentDisplayCount >= sortedRecords.length) {
       return;
@@ -301,17 +343,20 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
     };
     
     scheduleLoad(() => {
+      // 再次获取最新的值，确保使用最新的状态
       const sortedRecords = sortedRecordsRef.current;
-      const newCount = Math.min(currentDisplayCount + BATCH_SIZE, sortedRecords.length);
+      // 使用传入的 currentDisplayCount，确保一致性
+      const currentCount = currentDisplayCount;
       
-      // 如果超过最大显示数量，只保留最新的记录
-      let newRecords: ActivityRecord[];
-      if (newCount > MAX_DISPLAY_COUNT) {
-        // 只保留最新的 MAX_DISPLAY_COUNT 条记录
-        newRecords = sortedRecords.slice(0, MAX_DISPLAY_COUNT);
-      } else {
-        newRecords = sortedRecords.slice(0, newCount);
+      // 如果已经达到最大显示数量，不再加载更多
+      if (currentCount >= MAX_DISPLAY_COUNT) {
+        isLoadingMoreRef.current = false;
+        setIsLoadingMore(false);
+        return;
       }
+      
+      const newCount = Math.min(currentCount + BATCH_SIZE, sortedRecords.length, MAX_DISPLAY_COUNT);
+      const newRecords = sortedRecords.slice(0, newCount);
       
       // 直接更新，不使用 requestAnimationFrame，避免延迟
       setDisplayRecords(newRecords);
@@ -324,12 +369,12 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
         setIsLoadingMore(false);
       }, 150);
     });
-  }, []);
+  }, [displayCount]);
 
   // 移除自动滚动加载，只通过按钮手动加载
   // 这样可以避免卡顿，用户可以通过点击按钮控制加载时机
 
-  const hasMore = displayCount < processedData.sortedRecords.length;
+  const hasMore = displayCount < processedData.sortedRecords.length && displayCount < MAX_DISPLAY_COUNT;
 
   const content = (
     <>
@@ -356,6 +401,62 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
               正序（最早在前）
             </button>
           </div>
+        </div>
+        
+        {/* 搜索和筛选 */}
+        <div className="control-group">
+          <label className="control-label">搜索：</label>
+          <input
+            type="text"
+            className="search-input"
+            placeholder="搜索应用、窗口、进程路径等..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            style={{
+              padding: '6px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px',
+              width: '250px'
+            }}
+          />
+        </div>
+        
+        <div className="control-group">
+          <label className="control-label">筛选应用：</label>
+          <select
+            className="filter-select"
+            value={filteredAppName || ''}
+            onChange={(e) => setFilteredAppName(e.target.value || null)}
+            style={{
+              padding: '6px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px',
+              minWidth: '150px'
+            }}
+          >
+            <option value="">全部应用</option>
+            {Array.from(new Set(records.map(r => r.appName))).sort().map(appName => (
+              <option key={appName} value={appName}>{appName}</option>
+            ))}
+          </select>
+          {filteredAppName && (
+            <button
+              onClick={() => setFilteredAppName(null)}
+              style={{
+                marginLeft: '8px',
+                padding: '4px 8px',
+                fontSize: '12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                background: '#f5f5f5',
+                cursor: 'pointer'
+              }}
+            >
+              清除筛选
+            </button>
+          )}
         </div>
         
         <div className="control-group">
@@ -456,13 +557,21 @@ export function TimelineDetail({ records, onClose, asPage = false }: TimelineDet
                       <div className="loading-spinner-small"></div>
                       <span>正在加载更多...</span>
                     </div>
+                  ) : displayCount >= MAX_DISPLAY_COUNT ? (
+                    <div className="timeline-max-display-message">
+                      已显示 {MAX_DISPLAY_COUNT} 条记录（共 {processedData.sortedRecords.length} 条）
+                      <br />
+                      <span style={{ fontSize: '12px', color: '#666' }}>
+                        为保持性能，最多同时显示 {MAX_DISPLAY_COUNT} 条记录
+                      </span>
+                    </div>
                   ) : (
                     <button 
                       className="btn-load-more" 
                       onClick={loadMore}
                       disabled={isLoadingMore}
                     >
-                      加载更多 ({processedData.sortedRecords.length - displayCount} 条剩余)
+                      加载更多 ({Math.min(processedData.sortedRecords.length - displayCount, MAX_DISPLAY_COUNT - displayCount)} 条剩余)
                     </button>
                   )}
                 </div>

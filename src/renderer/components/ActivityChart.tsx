@@ -12,9 +12,10 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 
 interface ActivityChartProps {
   data: ActivityRecord[];
+  onSegmentClick?: (appName: string) => void;
 }
 
-export function ActivityChart({ data }: ActivityChartProps) {
+export function ActivityChart({ data, onSegmentClick }: ActivityChartProps) {
   // 按应用分组统计时长
   const appDurationMap = new Map<string, number>();
   
@@ -71,6 +72,20 @@ export function ActivityChart({ data }: ActivityChartProps) {
           },
         },
       },
+    },
+    onClick: (event: any, elements: any[]) => {
+      if (elements.length > 0 && onSegmentClick) {
+        const elementIndex = elements[0].index;
+        const appName = appData[elementIndex]?.appName;
+        if (appName) {
+          onSegmentClick(appName);
+        }
+      }
+    },
+    onHover: (event: any, elements: any[]) => {
+      if (event.native) {
+        (event.native.target as HTMLElement).style.cursor = elements.length > 0 ? 'pointer' : 'default';
+      }
     },
   };
 
