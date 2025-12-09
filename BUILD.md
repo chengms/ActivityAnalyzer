@@ -626,9 +626,20 @@ npm run build
 
 ### 方式 1: 直接分发
 
-将 `release/活动分析器 Setup 1.0.0.exe` 分发给用户。
+将 `release/活动分析器-1.0.0.exe` 分发给用户。
 
-### 方式 2: 使用更新服务器
+### 方式 2: GitHub Releases（推荐）
+
+将可执行文件发布到 GitHub Releases，方便用户下载和版本管理。
+
+**详细说明请查看 [RELEASE.md](./RELEASE.md)**
+
+快速步骤：
+1. 打包应用：`.\pack-with-mirror.ps1 dist:win:portable`
+2. 在 GitHub 仓库创建 Release
+3. 上传 `release/活动分析器-1.0.0.exe` 文件
+
+### 方式 3: 使用更新服务器
 
 如果配置了 `electron-updater`，可以设置自动更新：
 

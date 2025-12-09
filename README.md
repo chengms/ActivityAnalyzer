@@ -194,6 +194,27 @@ npm run dist:win:portable
 
 更多打包选项和问题排查，请查看 [BUILD.md](./BUILD.md)。
 
+## 🚀 发布到 GitHub Releases
+
+将编译好的可执行文件发布到 GitHub Releases：
+
+### 快速发布（推荐）
+
+```powershell
+# 使用发布脚本（自动更新版本号、打包、检查文件）
+.\publish-release.ps1 -Version "1.0.0"
+```
+
+然后按照脚本提示完成 Git 操作和 GitHub Release 创建。
+
+### 手动发布
+
+1. **打包应用**：`.\pack-with-mirror.ps1 dist:win:portable`
+2. **创建 Release**：在 GitHub 仓库页面创建新的 Release
+3. **上传文件**：上传 `release/活动分析器-1.0.0.exe` 文件
+
+详细说明请查看 [RELEASE.md](./RELEASE.md)。
+
 ## 📁 数据文件位置
 
 所有数据文件保存在用户数据目录：
@@ -259,5 +280,6 @@ MIT License
 - [开发指南](./DEVELOPMENT.md) - 开发相关说明
 - [运行指南](./RUN.md) - 运行应用说明
 - [打包指南](./BUILD.md) - 打包和发布说明
+- [发布指南](./RELEASE.md) - GitHub Releases 发布说明
 - [故障排除](./TROUBLESHOOTING.md) - 常见问题解决
 - [数据位置](./DATA_LOCATION.md) - 数据文件说明
