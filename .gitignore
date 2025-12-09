@@ -1,20 +1,43 @@
+# 依赖
 node_modules/
+
+# 构建输出
 dist/
+release/
+
+# 日志文件
 *.log
+
+# 系统文件
 .DS_Store
+Thumbs.db
+
+# 数据库文件
 *.db
 *.db-journal
+
+# 报告文件
 reports/*.pdf
 reports/*.xlsx
 reports/*.html
+
+# 环境变量
 .env
+.env.local
+
+# IDE 配置
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # TypeScript 编译输出（在源目录中）
 src/**/*.js
 src/**/*.js.map
 
-# 构建输出和发布文件
-release/
+# 临时文件
+*.tmp
+*.bak
+*.cache
 
