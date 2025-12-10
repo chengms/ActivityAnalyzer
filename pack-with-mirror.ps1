@@ -3,13 +3,29 @@
 # 智能清理缓存和旧的编译打包信息（仅清理必要部分）
 #
 # 用法:
-#   .\pack-with-mirror.ps1 [target] [--force]
+#   .\pack-with-mirror.ps1 [target] [--force] [--version <version>] [-v <version>]
 #   参数:
 #     target: 打包类型 (pack|dist|dist:win|dist:win:portable)，默认: dist:win:portable
-#     --force: 强制清理所有构建输出（包括 dist 和 Vite 缓存）
+#     --force, -f: 强制清理所有构建输出（包括 dist 和 Vite 缓存）
+#     --version <version>, -v <version>: 指定版本号（如: 1.0.1, 1.2.3）
 
 Write-Host "=== 使用国内镜像打包 ===" -ForegroundColor Green
 Write-Host ""
+
+# 读取当前版本号
+try {
+    $packageJsonContent = [System.IO.File]::ReadAllText("$PWD\package.json", [System.Text.Encoding]::UTF8)
+    $packageJson = $packageJsonContent | ConvertFrom-Json
+    $currentVersion = $packageJson.version
+    Write-Host "当前版本号: $currentVersion" -ForegroundColor Cyan
+    if ($version) {
+        Write-Host "将更新为: $version" -ForegroundColor Yellow
+    }
+    Write-Host ""
+} catch {
+    Write-Host "警告: 无法读取当前版本号: $_" -ForegroundColor Yellow
+    Write-Host ""
+}
 
 # 记录脚本开始时间（用于计算总耗时）
 $scriptStartTime = Get-Date
@@ -17,12 +33,25 @@ $scriptStartTime = Get-Date
 # 解析参数
 $target = $null
 $forceClean = $false
-foreach ($arg in $args) {
+$version = $null
+$i = 0
+while ($i -lt $args.Count) {
+    $arg = $args[$i]
     if ($arg -eq "--force" -or $arg -eq "-f") {
         $forceClean = $true
+    } elseif ($arg -eq "--version" -or $arg -eq "-v") {
+        $i++
+        if ($i -lt $args.Count) {
+            $version = $args[$i]
+        } else {
+            Write-Host "错误: --version 参数需要指定版本号" -ForegroundColor Red
+            Write-Host "用法: .\pack-with-mirror.ps1 [target] --version 1.0.1" -ForegroundColor Yellow
+            exit 1
+        }
     } elseif ($arg -notlike "--*" -and $arg -notlike "-*") {
         $target = $arg
     }
+    $i++
 }
 
 # ============================================
@@ -245,6 +274,38 @@ Write-Host "  CSC_IDENTITY_AUTO_DISCOVERY = $env:CSC_IDENTITY_AUTO_DISCOVERY"
 Write-Host ""
 
 # ============================================
+# 步骤 2.5: 更新版本号（如果指定）
+# ============================================
+if ($version) {
+    Write-Host "步骤 2.5: 更新版本号..." -ForegroundColor Cyan
+    try {
+        $packageJsonPath = "$PWD\package.json"
+        # 使用 UTF-8 编码读取文件
+        $packageJsonContent = [System.IO.File]::ReadAllText($packageJsonPath, [System.Text.Encoding]::UTF8)
+        $packageJson = $packageJsonContent | ConvertFrom-Json
+        $oldVersion = $packageJson.version
+        
+        # 验证版本号格式（简单验证：应该包含点号）
+        if ($version -notmatch '^\d+\.\d+\.\d+') {
+            Write-Host "   WARN 版本号格式可能不正确: $version" -ForegroundColor Yellow
+            Write-Host "   提示: 建议使用语义化版本号格式 (如: 1.0.1)" -ForegroundColor Yellow
+        }
+        
+        $packageJson.version = $version
+        # 使用 UTF-8 编码（无 BOM）保存文件
+        $updatedJson = $packageJson | ConvertTo-Json -Depth 10
+        $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+        [System.IO.File]::WriteAllText($packageJsonPath, $updatedJson, $utf8NoBom)
+        Write-Host "   OK 版本号已更新: $oldVersion -> $version" -ForegroundColor Green
+        Write-Host ""
+    } catch {
+        Write-Host "   FAIL 更新版本号失败: $_" -ForegroundColor Red
+        Write-Host "   继续使用当前版本号..." -ForegroundColor Yellow
+        Write-Host ""
+    }
+}
+
+# ============================================
 # 步骤 3: 构建项目
 # ============================================
 Write-Host "步骤 3: 构建项目..." -ForegroundColor Cyan
@@ -298,54 +359,73 @@ Write-Host "      - 正在生成便携版可执行文件" -ForegroundColor Cyan
 Write-Host ""
 
 # 记录开始时间
-$startTime = Get-Date
+$packStartTime = Get-Date
+$packSuccess = $false
 
-switch ($target) {
-    "pack" {
-        npm run pack
+try {
+    switch ($target) {
+        "pack" {
+            npm run pack
+            $packSuccess = ($LASTEXITCODE -eq 0)
+        }
+        "dist" {
+            npm run dist
+            $packSuccess = ($LASTEXITCODE -eq 0)
+        }
+        "dist:win" {
+            npm run dist:win
+            $packSuccess = ($LASTEXITCODE -eq 0)
+        }
+        "dist:win:portable" {
+            npm run dist:win:portable
+            $packSuccess = ($LASTEXITCODE -eq 0)
+        }
+        default {
+            Write-Host "未知的打包类型: $target" -ForegroundColor Red
+            Write-Host "使用: .\pack-with-mirror.ps1 [pack|dist|dist:win|dist:win:portable]" -ForegroundColor Yellow
+            exit 1
+        }
     }
-    "dist" {
-        npm run dist
+} catch {
+    Write-Host ""
+    Write-Host "打包过程发生错误: $_" -ForegroundColor Red
+    $packSuccess = $false
+} finally {
+    # 计算打包耗时
+    $packEndTime = Get-Date
+    $packDuration = $packEndTime - $packStartTime
+    $packMinutes = [math]::Floor($packDuration.TotalMinutes)
+    $packSeconds = [math]::Floor($packDuration.TotalSeconds % 60)
+    
+    # 计算总耗时
+    $scriptEndTime = Get-Date
+    $totalDuration = $scriptEndTime - $scriptStartTime
+    $totalMinutes = [math]::Floor($totalDuration.TotalMinutes)
+    $totalSeconds = [math]::Floor($totalDuration.TotalSeconds % 60)
+    
+    # 读取最终版本号
+    try {
+        $finalPackageJsonContent = [System.IO.File]::ReadAllText("$PWD\package.json", [System.Text.Encoding]::UTF8)
+        $finalPackageJson = $finalPackageJsonContent | ConvertFrom-Json
+        $finalVersion = $finalPackageJson.version
+    } catch {
+        $finalVersion = "未知"
     }
-    "dist:win" {
-        npm run dist:win
+    
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor $(if ($packSuccess) { "Green" } else { "Red" })
+    if ($packSuccess) {
+        Write-Host "打包完成！" -ForegroundColor Green
+    } else {
+        Write-Host "打包失败或被中断！" -ForegroundColor Red
     }
-    "dist:win:portable" {
-        npm run dist:win:portable
-    }
-    default {
-        Write-Host "未知的打包类型: $target" -ForegroundColor Red
-        Write-Host "使用: .\pack-with-mirror.ps1 [pack|dist|dist:win|dist:win:portable]" -ForegroundColor Yellow
+    Write-Host "  版本号: $finalVersion" -ForegroundColor Cyan
+    Write-Host "  编译耗时: ${buildMinutes}分${buildSeconds}秒" -ForegroundColor Cyan
+    Write-Host "  打包耗时: ${packMinutes}分${packSeconds}秒" -ForegroundColor Cyan
+    Write-Host "  总耗时: ${totalMinutes}分${totalSeconds}秒" -ForegroundColor $(if ($packSuccess) { "Green" } else { "Red" })
+    Write-Host "========================================" -ForegroundColor $(if ($packSuccess) { "Green" } else { "Red" })
+    
+    if (-not $packSuccess) {
         exit 1
     }
-}
-
-# 计算耗时
-$endTime = Get-Date
-$duration = $endTime - $startTime
-$minutes = [math]::Floor($duration.TotalMinutes)
-$seconds = [math]::Floor($duration.TotalSeconds % 60)
-
-# 计算总耗时
-$scriptEndTime = Get-Date
-$totalDuration = $scriptEndTime - $scriptStartTime
-$totalMinutes = [math]::Floor($totalDuration.TotalMinutes)
-$totalSeconds = [math]::Floor($totalDuration.TotalSeconds % 60)
-
-if ($LASTEXITCODE -eq 0) {
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Green
-    Write-Host "打包完成！" -ForegroundColor Green
-    Write-Host "  编译耗时: ${buildMinutes}分${buildSeconds}秒" -ForegroundColor Cyan
-    Write-Host "  打包耗时: ${minutes}分${seconds}秒" -ForegroundColor Cyan
-    Write-Host "  总耗时: ${totalMinutes}分${totalSeconds}秒" -ForegroundColor Green
-    Write-Host "========================================" -ForegroundColor Green
-} else {
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Red
-    Write-Host "打包失败！" -ForegroundColor Red
-    Write-Host "  编译耗时: ${buildMinutes}分${buildSeconds}秒" -ForegroundColor Yellow
-    Write-Host "  打包耗时: ${minutes}分${seconds}秒" -ForegroundColor Yellow
-    Write-Host "  总耗时: ${totalMinutes}分${totalSeconds}秒" -ForegroundColor Red
-    Write-Host "========================================" -ForegroundColor Red
 }

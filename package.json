@@ -1,107 +1,107 @@
 {
-  "name": "activity-analyzer",
-  "version": "1.0.0",
-  "description": "活动分析器 - 电脑活动追踪与分析报告工具",
-  "main": "dist/main/main.js",
-  "scripts": {
-    "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
-    "dev:main": "tsc -w -p tsconfig.main.json",
-    "dev:renderer": "vite",
-    "build": "npm run build:main && npm run build:renderer",
-    "build:main": "tsc -p tsconfig.main.json",
-    "build:renderer": "vite build",
-    "postinstall": "electron-rebuild",
-    "rebuild": "electron-rebuild",
-    "start": "electron .",
-    "electron": "electron .",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder",
-    "dist:win": "electron-builder --win",
-    "dist:win:portable": "electron-builder --win portable",
-    "dist:all": "electron-builder --win --mac --linux"
-  },
-  "keywords": [
-    "activity-tracker",
-    "time-tracker",
-    "productivity",
-    "analytics"
-  ],
-  "author": "",
-  "license": "MIT",
-  "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^20.10.0",
-    "@types/react": "^18.2.43",
-    "@types/react-dom": "^18.2.17",
-    "@vitejs/plugin-react": "^4.2.1",
-    "app-builder-bin": "^4.2.0",
-    "builder-util": "^26.0.11",
-    "concurrently": "^8.2.2",
-    "electron": "^28.3.3",
-    "electron-builder": "^26.0.12",
-    "electron-rebuild": "^3.2.9",
-    "typescript": "^5.3.3",
-    "vite": "^5.0.8"
-  },
-  "dependencies": {
-    "active-win": "^8.2.1",
-    "better-sqlite3": "^12.5.0",
-    "chart.js": "^4.4.1",
-    "date-fns": "^3.0.6",
-    "electron-updater": "^6.1.7",
-    "react": "^18.2.0",
-    "react-chartjs-2": "^5.2.0",
-    "react-dom": "^18.2.0",
-    "xlsx": "^0.18.5"
-  },
-  "build": {
-    "appId": "com.activityanalyzer.app",
-    "productName": "活动分析器",
-    "directories": {
-      "output": "release",
-      "buildResources": "build"
-    },
-    "files": [
-      "dist/**/*",
-      "package.json",
-      "build/icon.ico",
-      "build/icon-1.png",
-      "!src/**/*",
-      "!*.md",
-      "!*.config.*",
-      "!tsconfig*.json"
-    ],
-    "asarUnpack": [
-      "**/node_modules/better-sqlite3/**/*",
-      "**/node_modules/active-win/**/*"
-    ],
-    "asar": true,
-    "compression": "normal",
-    "win": {
-      "target": [
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "build/icon.ico",
-      "forceCodeSigning": false
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "活动分析器",
-      "installerLanguages": [
-        "zh_CN"
-      ],
-      "language": "2052"
-    },
-    "portable": {
-      "artifactName": "${productName}-${version}.${ext}"
-    }
-  }
+    "name":  "activity-analyzer",
+    "version":  "1.0.1",
+    "description":  "活动分析器 - 电脑活动追踪与分析报告工具",
+    "main":  "dist/main/main.js",
+    "scripts":  {
+                    "dev":  "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
+                    "dev:main":  "tsc -w -p tsconfig.main.json",
+                    "dev:renderer":  "vite",
+                    "build":  "npm run build:main \u0026\u0026 npm run build:renderer",
+                    "build:main":  "tsc -p tsconfig.main.json",
+                    "build:renderer":  "vite build",
+                    "postinstall":  "electron-rebuild",
+                    "rebuild":  "electron-rebuild",
+                    "start":  "electron .",
+                    "electron":  "electron .",
+                    "pack":  "electron-builder --dir",
+                    "dist":  "electron-builder",
+                    "dist:win":  "electron-builder --win",
+                    "dist:win:portable":  "electron-builder --win portable",
+                    "dist:all":  "electron-builder --win --mac --linux"
+                },
+    "keywords":  [
+                     "activity-tracker",
+                     "time-tracker",
+                     "productivity",
+                     "analytics"
+                 ],
+    "author":  "",
+    "license":  "MIT",
+    "devDependencies":  {
+                            "@types/better-sqlite3":  "^7.6.13",
+                            "@types/node":  "^20.10.0",
+                            "@types/react":  "^18.2.43",
+                            "@types/react-dom":  "^18.2.17",
+                            "@vitejs/plugin-react":  "^4.2.1",
+                            "app-builder-bin":  "^4.2.0",
+                            "builder-util":  "^26.0.11",
+                            "concurrently":  "^8.2.2",
+                            "electron":  "^28.3.3",
+                            "electron-builder":  "^26.0.12",
+                            "electron-rebuild":  "^3.2.9",
+                            "typescript":  "^5.3.3",
+                            "vite":  "^5.0.8"
+                        },
+    "dependencies":  {
+                         "active-win":  "^8.2.1",
+                         "better-sqlite3":  "^12.5.0",
+                         "chart.js":  "^4.4.1",
+                         "date-fns":  "^3.0.6",
+                         "electron-updater":  "^6.1.7",
+                         "react":  "^18.2.0",
+                         "react-chartjs-2":  "^5.2.0",
+                         "react-dom":  "^18.2.0",
+                         "xlsx":  "^0.18.5"
+                     },
+    "build":  {
+                  "appId":  "com.activityanalyzer.app",
+                  "productName":  "活动分析器",
+                  "directories":  {
+                                      "output":  "release",
+                                      "buildResources":  "build"
+                                  },
+                  "files":  [
+                                "dist/**/*",
+                                "package.json",
+                                "build/icon.ico",
+                                "build/icon-1.png",
+                                "!src/**/*",
+                                "!*.md",
+                                "!*.config.*",
+                                "!tsconfig*.json"
+                            ],
+                  "asarUnpack":  [
+                                     "**/node_modules/better-sqlite3/**/*",
+                                     "**/node_modules/active-win/**/*"
+                                 ],
+                  "asar":  true,
+                  "compression":  "normal",
+                  "win":  {
+                              "target":  [
+                                             {
+                                                 "target":  "portable",
+                                                 "arch":  [
+                                                              "x64"
+                                                          ]
+                                             }
+                                         ],
+                              "icon":  "build/icon.ico",
+                              "forceCodeSigning":  false
+                          },
+                  "nsis":  {
+                               "oneClick":  false,
+                               "allowToChangeInstallationDirectory":  true,
+                               "createDesktopShortcut":  true,
+                               "createStartMenuShortcut":  true,
+                               "shortcutName":  "活动分析器",
+                               "installerLanguages":  [
+                                                          "zh_CN"
+                                                      ],
+                               "language":  "2052"
+                           },
+                  "portable":  {
+                                   "artifactName":  "${productName}-${version}.${ext}"
+                               }
+              }
 }
