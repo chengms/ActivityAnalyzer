@@ -54,9 +54,9 @@ const formatDuration = (seconds: number): string => {
 };
 
 const INITIAL_DISPLAY_COUNT = 20; // 初始显示记录数（大幅减少以提高性能）
-const BATCH_SIZE = 15; // 每批加载的记录数（进一步减少以提高性能）
+const BATCH_SIZE = 50; // 每批加载的记录数（增加批量大小以提高加载效率）
 const MAX_SORT_SIZE = 10000; // 超过此数量时使用简化排序
-const MAX_DISPLAY_COUNT = 100; // 最大显示记录数（减少以提高性能）
+const MAX_DISPLAY_COUNT = 10000; // 最大显示记录数（设置为很大的值，允许显示所有记录）
 
 export function TimelineDetail({ records, onClose, asPage = false, filterAppName }: TimelineDetailProps) {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -94,49 +94,8 @@ export function TimelineDetail({ records, onClose, asPage = false, filterAppName
     setEndDateTime(`${today}T${currentTime}`);
   }, []);
   
-  // 当切换到正序时，自动设置时间段为当天最早记录时间到当前时间
-  React.useEffect(() => {
-    if (sortOrder === 'asc' && records.length > 0) {
-      // 找到当天最早的记录时间
-      const now = new Date();
-      const today = format(now, 'yyyy-MM-dd');
-      const todayStart = new Date(`${today}T00:00:00`).getTime();
-      const todayEnd = now.getTime();
-      
-      // 过滤出当天的记录（只包含到当前时间点的记录）
-      const todayRecords = records.filter(record => {
-        const recordTime = new Date(record.startTime).getTime();
-        return recordTime >= todayStart && recordTime <= todayEnd;
-      });
-      
-      if (todayRecords.length > 0) {
-        // 找到最早的记录时间
-        const earliestRecord = todayRecords.reduce((earliest, record) => {
-          const recordTime = new Date(record.startTime).getTime();
-          const earliestTime = new Date(earliest.startTime).getTime();
-          return recordTime < earliestTime ? record : earliest;
-        });
-        
-        // 设置开始时间为最早记录时间，结束时间为当前时间
-        const earliestDate = parseISO(earliestRecord.startTime);
-        const earliestDateTime = format(earliestDate, 'yyyy-MM-dd') + 'T' + format(earliestDate, 'HH:mm');
-        const currentDateTime = format(now, 'yyyy-MM-dd') + 'T' + format(now, 'HH:mm');
-        
-        setStartDateTime(earliestDateTime);
-        setEndDateTime(currentDateTime);
-        setUseTimeRange(true); // 自动启用时间段选择
-      } else {
-        // 如果没有当天的记录，使用默认时间范围
-        const currentDateTime = format(now, 'yyyy-MM-dd') + 'T' + format(now, 'HH:mm');
-        setStartDateTime(`${today}T00:00`);
-        setEndDateTime(currentDateTime);
-        setUseTimeRange(true);
-      }
-    } else if (sortOrder === 'desc') {
-      // 切换到倒序时，可以选择是否禁用时间段选择
-      // 这里保持用户的选择，不自动禁用
-    }
-  }, [sortOrder, records]);
+  // 移除自动设置时间段的逻辑，默认显示全部记录
+  // 用户可以通过"指定时间段"复选框手动启用时间段筛选
   
   // 使用 useMemo 优化排序和计算，避免每次渲染都重新计算
   const processedData = useMemo(() => {
@@ -168,6 +127,7 @@ export function TimelineDetail({ records, onClose, asPage = false, filterAppName
     }
     
     // 时间段过滤（在应用名称筛选和搜索过滤之后）
+    // 只有当用户明确启用"指定时间段"时，才进行时间段过滤
     if (useTimeRange && startDateTime && endDateTime) {
       try {
         const startTime = new Date(startDateTime).getTime();
@@ -180,14 +140,8 @@ export function TimelineDetail({ records, onClose, asPage = false, filterAppName
       } catch (error) {
         console.error('Error filtering by time range:', error);
       }
-    } else {
-      // 如果没有选择时间段，只显示到当前时间点的记录
-      const now = new Date().getTime();
-      filteredRecords = filteredRecords.filter(record => {
-        const recordTime = new Date(record.startTime).getTime();
-        return recordTime <= now; // 只包含当前时间点及之前的记录
-      });
     }
+    // 如果没有选择时间段，显示所有记录（不过滤）
     
     if (filteredRecords.length === 0) {
       return { sortedRecords: [], switchCount: 0 };
@@ -348,14 +302,15 @@ export function TimelineDetail({ records, onClose, asPage = false, filterAppName
       // 使用传入的 currentDisplayCount，确保一致性
       const currentCount = currentDisplayCount;
       
-      // 如果已经达到最大显示数量，不再加载更多
-      if (currentCount >= MAX_DISPLAY_COUNT) {
+      // 如果已经显示所有记录，不再加载更多
+      if (currentCount >= sortedRecords.length) {
         isLoadingMoreRef.current = false;
         setIsLoadingMore(false);
         return;
       }
       
-      const newCount = Math.min(currentCount + BATCH_SIZE, sortedRecords.length, MAX_DISPLAY_COUNT);
+      // 计算新的显示数量：当前数量 + 批量大小，但不超过总记录数
+      const newCount = Math.min(currentCount + BATCH_SIZE, sortedRecords.length);
       const newRecords = sortedRecords.slice(0, newCount);
       
       // 直接更新，不使用 requestAnimationFrame，避免延迟
@@ -374,7 +329,7 @@ export function TimelineDetail({ records, onClose, asPage = false, filterAppName
   // 移除自动滚动加载，只通过按钮手动加载
   // 这样可以避免卡顿，用户可以通过点击按钮控制加载时机
 
-  const hasMore = displayCount < processedData.sortedRecords.length && displayCount < MAX_DISPLAY_COUNT;
+  const hasMore = displayCount < processedData.sortedRecords.length;
 
   const content = (
     <>
@@ -557,21 +512,13 @@ export function TimelineDetail({ records, onClose, asPage = false, filterAppName
                       <div className="loading-spinner-small"></div>
                       <span>正在加载更多...</span>
                     </div>
-                  ) : displayCount >= MAX_DISPLAY_COUNT ? (
-                    <div className="timeline-max-display-message">
-                      已显示 {MAX_DISPLAY_COUNT} 条记录（共 {processedData.sortedRecords.length} 条）
-                      <br />
-                      <span style={{ fontSize: '12px', color: '#666' }}>
-                        为保持性能，最多同时显示 {MAX_DISPLAY_COUNT} 条记录
-                      </span>
-                    </div>
                   ) : (
                     <button 
                       className="btn-load-more" 
                       onClick={loadMore}
                       disabled={isLoadingMore}
                     >
-                      加载更多 ({Math.min(processedData.sortedRecords.length - displayCount, MAX_DISPLAY_COUNT - displayCount)} 条剩余)
+                      加载更多 ({processedData.sortedRecords.length - displayCount} 条剩余)
                     </button>
                   )}
                 </div>

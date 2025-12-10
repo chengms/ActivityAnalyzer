@@ -140,6 +140,40 @@ function App() {
     }
   }, []);
 
+  // 监听窗口显示/聚焦事件，当显示主界面时自动刷新数据
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // 当窗口变为可见时，如果当前在主界面，刷新数据
+      if (!document.hidden && activeTab === 'main' && 
+          !showTimelineDetail && !showTimelineFromSidebar && 
+          !showSettings && !showReportHistory && !showReportViewer && !showChart) {
+        console.log('[App] 窗口显示，自动刷新主界面数据');
+        loadData();
+      }
+    };
+
+    const handleFocus = () => {
+      // 当窗口获得焦点时，如果当前在主界面，刷新数据
+      if (activeTab === 'main' && 
+          !showTimelineDetail && !showTimelineFromSidebar && 
+          !showSettings && !showReportHistory && !showReportViewer && !showChart) {
+        console.log('[App] 窗口获得焦点，自动刷新主界面数据');
+        loadData();
+      }
+    };
+
+    // 监听页面可见性变化
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // 监听窗口聚焦
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [activeTab, showTimelineDetail, showTimelineFromSidebar, showSettings, 
+      showReportHistory, showReportViewer, showChart, loadData]);
+
   // 自动检测日期变化，新一天时自动跳转到当前日期
   useEffect(() => {
     const checkDateChange = () => {
