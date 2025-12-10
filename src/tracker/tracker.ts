@@ -241,14 +241,31 @@ export class ActivityTracker {
       this.saveIntervalId = null;
     }
     
-    // 保存当前活动记录
+    // 保存并结束当前活动记录（使用当前时间作为结束时间）
     // 注意：由于 JavaScript 是单线程的，如果 checkActivity 正在执行，
     // stop() 不会被调用，直到 checkActivity 完成。所以这里不需要等待。
     // saveCurrentActivity 不检查 isSaving 锁，所以可以安全调用。
-    this.saveCurrentActivity();
+    if (this.currentApp && this.currentStartTime) {
+      // 立即保存并结束当前活动
+      this.saveCurrentActivity();
+      // 清除当前活动状态，防止继续记录
+      this.currentApp = '';
+      this.currentWindow = '';
+      this.currentStartTime = null;
+      this.currentRecordId = null;
+      this.currentProcessInfo = null;
+      this.currentTabTitle = null;
+      this.currentTabUrl = null;
+      console.log('[Tracker] Tracking stopped, current activity ended');
+    }
   }
 
   private async checkActivity() {
+    // 如果追踪器未运行（比如锁屏时停止了），直接返回，不记录任何活动
+    if (!this.isRunning()) {
+      return;
+    }
+    
     const checkTime = new Date(); // 当前检查时间（在 try 块外定义，确保异常时也能使用）
     
     try {
@@ -257,6 +274,26 @@ export class ActivityTracker {
       
       // 获取应用名称和进程详细信息
       const processInfo = await this.getActiveApplicationWithDetails(activeWindow);
+
+      // 如果检测到 Unknown，不记录（可能是锁屏状态）
+      if (processInfo.appName === 'Unknown' || activeWindow === 'Unknown Window') {
+        // 如果当前有活动记录，保存并结束它
+        if (this.currentApp && this.currentApp !== 'Unknown') {
+          console.log('[Activity] Detected Unknown (possibly locked screen), ending current activity');
+          this.saveCurrentActivity();
+          // 清除当前活动状态
+          this.currentApp = '';
+          this.currentWindow = '';
+          this.currentStartTime = null;
+          this.currentRecordId = null;
+          this.currentProcessInfo = null;
+          this.currentTabTitle = null;
+          this.currentTabUrl = null;
+        }
+        // 不记录 Unknown 活动
+        this.lastCheckTime = checkTime;
+        return;
+      }
 
       // 如果应用或窗口发生变化
       if (processInfo.appName !== this.currentApp || activeWindow !== this.currentWindow) {

@@ -784,13 +784,17 @@ ipcMain.handle('get-recent-activities', async () => {
 function setupLockScreenMonitoring() {
   // Windows 和 macOS 都支持 lock-screen 和 unlock-screen 事件
   powerMonitor.on('lock-screen', () => {
-    logger.info('Screen locked, stopping tracking...');
+    const lockTime = new Date();
+    logger.info(`Screen locked at ${lockTime.toISOString()}, stopping tracking...`);
     if (tracker && tracker.isRunning()) {
       tracker.stop();
+      logger.info('Tracking stopped successfully after screen lock');
       // 通知渲染进程
       if (mainWindow) {
         mainWindow.webContents.send('tracking-status-changed', false);
       }
+    } else {
+      logger.warn('Tracker was not running when screen locked');
     }
   });
 

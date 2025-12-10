@@ -52,6 +52,11 @@ npm start
 # 使用打包脚本（自动配置国内镜像，推荐）
 .\pack-with-mirror.ps1 dist:win:portable
 
+# 指定版本号打包（自动更新 package.json 中的版本号）
+.\pack-with-mirror.ps1 dist:win:portable --version 1.0.1
+# 或使用简写
+.\pack-with-mirror.ps1 dist:win:portable -v 1.0.1
+
 # 或手动打包
 npm run build
 npm run dist:win:portable
@@ -177,9 +182,12 @@ npm start
 
 ### 快速打包（推荐）
 
-```bash
+```powershell
 # 使用打包脚本（自动配置国内镜像，智能清理）
 .\pack-with-mirror.ps1 dist:win:portable
+
+# 指定版本号打包（自动更新 package.json）
+.\pack-with-mirror.ps1 dist:win:portable --version 1.0.1
 ```
 
 ### 手动打包
